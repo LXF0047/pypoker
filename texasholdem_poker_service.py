@@ -6,6 +6,8 @@ from poker.game_server_redis import GameServerRedis
 from poker.game_room import GameRoomFactory
 from poker.poker_game_holdem import HoldemPokerGameFactory
 
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG if 'DEBUG' in os.environ else logging.INFO)

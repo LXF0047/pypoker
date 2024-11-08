@@ -14,7 +14,9 @@ from poker.player_client import PlayerClientConnector
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "!!_-pyp0k3r-_!!"
-app.debug = True
+app.debug = False
+
+os.environ['REDIS_URL'] = 'redis://localhost:6379/0'
 
 sockets = Sockets(app)
 
@@ -42,7 +44,8 @@ def join():
     session["player-name"] = name
     session["player-money"] = 1000
     session["room-id"] = room_id if room_id else None
-    return redirect(url_for("index"))
+
+    return redirect("http://139.224.193.134:5123/")
 
 
 @sockets.route("/poker/texas-holdem")
