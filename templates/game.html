@@ -12,8 +12,13 @@
         </div>
 
         <div id="current-player-wrapper" class="col-sm-4">
-            <h4>Hi {{player_name}}!</h4>
-
+            <h4>Room id {{ room }}</h4>
+            <h4>Hi {{ username }}!</h4>
+            <div id="ready-status">
+                <input type="button" id="ready-btn" class="btn btn-info" value="Ready"/>
+                <span id="status-indicator"
+                      style="display:inline-block; width: 10px; height: 10px; background-color: red; border-radius: 50%;"></span>
+            </div>
             <div id="game-status" class="hidden">
                 <p data-key="4"></p>
                 <p data-key="3"></p>
@@ -22,26 +27,31 @@
                 <p data-key="0"></p>
             </div>
 
-            <p>Enjoy your poker game :)</p>
-
             <div id="current-player" class="player">
                 <div class="cards"></div>
 
                 <div id="player-controls">
                     <div id="bet-controls" class="controls">
                         <div id="fold-cmd-wrapper">
-                            <input type="button" id="fold-cmd" class="btn btn-danger" value="Fold" />
+                            <input type="button" id="fold-cmd" class="btn btn-danger" value="Fold"/>
                         </div>
+{#                        <div id="bet-input-wrapper">#}
+{#                            <input id="bet-input" type="hidden" class="slider"#}
+{#                                   data-slider-id="bet-input"#}
+{#                                   data-slider-step="1"/>#}
+{#                        </div>#}
                         <div id="bet-input-wrapper">
-                            <input id="bet-input" type="hidden" class="slider"
-                                   data-slider-id="bet-input"
-                                   data-slider-step="1"/>
+                            <button id="decrease-bet" class="btn btn-secondary">-</button>
+                            <input id="bet-input" type="text" readonly value="0"
+                                   style="width: 60px; text-align: center;"/>
+                            <button id="increase-bet" class="btn btn-secondary">+</button>
                         </div>
                         <div id="bet-cmd-wrapper">
-                            <input type="button" id="bet-cmd" class="btn btn-primary" value="Check" />
+                            <input type="button" id="bet-cmd" class="btn btn-primary" value="Check"/>
+                            <button id="allin-bet" class="btn btn-secondary">All in</button>
                         </div>
                         <div id="no-bet-cmd-wrapper">
-                            <input type="button" id="no-bet-cmd" class="btn btn-warning" value="Unable to open" />
+                            <input type="button" id="no-bet-cmd" class="btn btn-warning" value="Unable to open"/>
                         </div>
                     </div>
 
@@ -50,6 +60,22 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <div id="ranking-list" class="col-sm-4">
+            <h4>排行榜</h4>
+            <table id="ranking-table" class="table">
+                <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>玩家</th>
+                    <th>总积分</th>
+                    <th>每100手收益</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- 排行榜数据将动态填充到这里 -->
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

@@ -5,12 +5,15 @@ import gevent
 
 from .deck import DeckFactory
 from .player import Player
-from .poker_game import PokerGame, GameFactory, GameError, EndGameException, GamePlayers, GameEventDispatcher, GameSubscriber
+from .poker_game import PokerGame, GameFactory, GameError, EndRoundException, EndGameException, GamePlayers, \
+    GameEventDispatcher, GameSubscriber
 from .score_detector import HoldemPokerScoreDetector
+from .database import update_player_in_db, get_ranking_list
 
 
 class HoldemPokerGameFactory(GameFactory):
-    def __init__(self, big_blind: float, small_blind: float, logger, game_subscribers: Optional[List[GameSubscriber]] = None):
+    def __init__(self, big_blind: float, small_blind: float, logger,
+                 game_subscribers: Optional[List[GameSubscriber]] = None):
         self._big_blind: float = big_blind
         self._small_blind: float = small_blind
         self._logger = logger
@@ -20,6 +23,7 @@ class HoldemPokerGameFactory(GameFactory):
         game_id = str(uuid.uuid4())
 
         event_dispatcher = HoldemPokerGameEventDispatcher(game_id=game_id, logger=self._logger)
+        # 游戏管理器中添加订阅者
         for subscriber in self._game_subscribers:
             event_dispatcher.subscribe(subscriber)
 
@@ -29,12 +33,19 @@ class HoldemPokerGameFactory(GameFactory):
             id=game_id,
             game_players=GamePlayers(players),
             event_dispatcher=event_dispatcher,
-            deck_factory=DeckFactory(2),
+            deck_factory=DeckFactory(2),  # 指定2为最小牌面
             score_detector=HoldemPokerScoreDetector()
         )
 
 
 class HoldemPokerGameEventDispatcher(GameEventDispatcher):
+    """
+    游戏事件管理中新增三种事件
+    1.新游戏
+    2.游戏结束
+    3.发公共牌
+    """
+
     def new_game_event(self, game_id, players, dealer_id, big_blind, small_blind):
         self.raise_event(
             "new-game",
@@ -55,17 +66,31 @@ class HoldemPokerGameEventDispatcher(GameEventDispatcher):
         )
 
     def shared_cards_event(self, cards):
+        """
+        发公共牌
+        """
         self.raise_event(
             "shared-cards",
             {
-                "cards": [card.dto() for card in cards]
+                "cards": [card.dto() for card in cards]  # [('J', '♠'), ...]
+            }
+        )
+
+    def update_ranking_event(self, ranking_list):
+        """
+        更新排行榜
+        """
+        self.raise_event(
+            "update-ranking-list",
+            {
+                "ranking_list": ranking_list
             }
         )
 
 
 class HoldemPokerGame(PokerGame):
     TIMEOUT_TOLERANCE = 2
-    BET_TIMEOUT = 30
+    BET_TIMEOUT = 300
 
     # WAIT_AFTER_CARDS_ASSIGNMENT = 1
     # WAIT_AFTER_BET_ROUND = 1
@@ -79,7 +104,33 @@ class HoldemPokerGame(PokerGame):
         self._big_blind = big_blind
         self._small_blind = small_blind
 
+    def __check_no_money_players(self):
+        # 没钱的自动贷款
+        for player in self._game_players.active:
+            if player.money < self._big_blind:
+                # self._event_dispatcher.dead_player_event(player)
+                # self._game_players.remove(player.id)
+                # 为玩家重新平分配1000并记录贷款行为
+                player.add_loan()
+
+    def _save_player_data(self):
+        # 将玩家数据保存到数据库
+        for player in self._game_players.all:
+            update_player_in_db(player.dto())
+            player.reset_loan()
+
+    def update_ranking_list(self):
+        ranking_data = get_ranking_list()
+        self._event_dispatcher.update_ranking_event(ranking_data)
+
+    def _reset_ready_state(self):
+        for player in self._game_players.all:
+            player._ready = False
+
     def _add_shared_cards(self, new_shared_cards, scores):
+        """
+        添加公共牌并广播事件。
+        """
         self._event_dispatcher.shared_cards_event(new_shared_cards)
         # Adds the new shared cards
         scores.add_shared_cards(new_shared_cards)
@@ -89,11 +140,8 @@ class HoldemPokerGame(PokerGame):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _collect_blinds(self, dealer_id):
-        # Kicking out players with no money
-        for player in self._game_players.active:
-            if player.money < self._big_blind:
-                self._event_dispatcher.dead_player_event(player)
-                self._game_players.remove(player.id)
+        # 检查是否有足够的钱来支付盲注
+        # self.__check_no_money_players()
 
         if self._game_players.count_active() < 2:
             raise GameError("Not enough players")
@@ -129,6 +177,13 @@ class HoldemPokerGame(PokerGame):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Game logic
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def save_player_data(self):
+        """
+        保存游戏数据，包括玩家数据、游戏状态等。
+        """
+        self.__check_no_money_players()  # 检查是否有玩家没钱了
+        self._save_player_data()  # 保存用户数据
 
     def play_hand(self, dealer_id):
 
@@ -211,6 +266,7 @@ class HoldemPokerGame(PokerGame):
 
         except EndGameException:
             self._detect_winners(pots, scores)
+            self._reset_ready_state()  # 重置准备状态
 
         finally:
             self._event_dispatcher.game_over_event()

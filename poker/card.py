@@ -26,15 +26,16 @@ class Card:
             raise ValueError("Invalid card rank")
         if suit not in Card.SUITS:
             raise ValueError("Invalid card suit")
-        self._value: int = (rank << 2) + suit
+        self._value: int = (rank << 2) + suit  # 数字左移两位，后两位用于保存花色
 
     @property
     def rank(self) -> int:
-        return self._value >> 2
+        return self._value >> 2  # 右移取出数字
 
     @property
     def suit(self) -> int:
-        return self._value & 3
+        # 111000 & 000011 = 000000 = 0
+        return self._value & 3  # 按位与操作取出后两位花色位
 
     def __lt__(self, other):
         return int(self) < int(other)

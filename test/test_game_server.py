@@ -26,6 +26,7 @@ class GameServerTest(unittest.TestCase):
                         id="player-{}".format(i),
                         name="Player {}".format(i),
                         money=1000.0,
+                        loan=0,
                         logger=mock.Mock()
                     )
                 )

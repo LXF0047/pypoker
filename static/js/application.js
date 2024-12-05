@@ -9,12 +9,12 @@ PyPoker = {
 
         scoreCategories: null,
 
-        getCurrentPlayerId: function() {
+        getCurrentPlayerId: function () {
             return $('#current-player').attr('data-player-id');
         },
 
-        setCard: function($card, rank, suit) {
-            $card.each(function() {
+        setCard: function ($card, rank, suit) {
+            $card.each(function () {
                 x = 0;
                 y = 0;
 
@@ -22,13 +22,11 @@ PyPoker = {
                     url = "static/images/cards-small.png";
                     width = 24;
                     height = 40;
-                }
-                else if ($(this).hasClass('medium')) {
+                } else if ($(this).hasClass('medium')) {
                     url = "static/images/cards-medium.png";
                     width = 45;
                     height = 75;
-                }
-                else {
+                } else {
                     url = "static/images/cards-large.png";
                     width = 75;
                     height = 125;
@@ -58,8 +56,7 @@ PyPoker = {
 
                     if (rank == 14) {
                         rank = 1;
-                    }
-                    else if (rank < 1 || rank > 13) {
+                    } else if (rank < 1 || rank > 13) {
                         throw "Invalid rank";
                     }
 
@@ -71,8 +68,9 @@ PyPoker = {
             })
         },
 
-        newGame: function(message) {
+        newGame: function (message) {
             PyPoker.Game.gameId = message.game_id;
+            PyPoker.Game.emptyGameRecord();
 
             if (message.game_type == "traditional") {
                 PyPoker.Game.numCards = 5;
@@ -87,8 +85,7 @@ PyPoker = {
                     7: "Four of a kind",
                     8: "Straight flush"
                 };
-            }
-            else {
+            } else {
                 PyPoker.Game.numCards = 2;
                 PyPoker.Game.scoreCategories = {
                     0: "Highest card",
@@ -123,7 +120,8 @@ PyPoker = {
             $('#current-player').show();
         },
 
-        gameOver: function(message) {
+        emptyGameRecord: function () {
+            //游戏开始前清空上局游戏状态
             $('.player').removeClass('fold');
             $('.player').removeClass('winner');
             $('.player').removeClass('looser');
@@ -135,23 +133,29 @@ PyPoker = {
             $('#current-player').hide();
         },
 
-        updatePlayer: function(player) {
+        gameOver: function (message) {
+            //ready-btn改为Ready，指示器改为红色
+            $('#ready-btn').val('Ready');
+            $('#status-indicator').css('background-color', 'red');
+        },
+
+        updatePlayer: function (player) {
             $player = $('#players .player[data-player-id=' + player.id + ']');
             $('.player-money', $player).text('$' + parseInt(player.money));
             $('.player-name', $player).text(player.name);
         },
 
-        playerFold: function(player) {
+        playerFold: function (player) {
             $('#players .player[data-player-id=' + player.id + ']').addClass('fold');
         },
 
-        updatePlayers: function(players) {
+        updatePlayers: function (players) {
             for (k in players) {
                 PyPoker.Game.updatePlayer(players[k]);
             }
         },
 
-        updatePlayersBet: function(bets) {
+        updatePlayersBet: function (bets) {
             // Remove bets
             $('#players .player .bet-wrapper').empty();
             if (bets !== undefined) {
@@ -166,7 +170,7 @@ PyPoker = {
             }
         },
 
-        setPlayerCards: function(cards, $cards) {
+        setPlayerCards: function (cards, $cards) {
             for (cardKey in cards) {
                 $card = $('.card[data-key=' + cardKey + ']', $cards);
                 PyPoker.Game.setCard(
@@ -177,20 +181,20 @@ PyPoker = {
             }
         },
 
-        updatePlayersCards: function(players) {
+        updatePlayersCards: function (players) {
             for (playerId in players) {
                 $cards = $('.player[data-player-id=' + playerId + '] .cards');
                 PyPoker.Game.setPlayerCards(players[playerId].cards, $cards);
             }
         },
 
-        updateCurrentPlayerCards: function(cards, score) {
+        updateCurrentPlayerCards: function (cards, score) {
             $cards = $('.player[data-player-id=' + PyPoker.Game.getCurrentPlayerId() + '] .cards');
             PyPoker.Game.setPlayerCards(cards, $cards);
             $('#current-player .cards .category').text(PyPoker.Game.scoreCategories[score.category]);
         },
 
-        addSharedCards: function(cards) {
+        addSharedCards: function (cards) {
             for (cardKey in cards) {
                 $card = $('<div class="card medium"></div>');
                 PyPoker.Game.setCard($card, cards[cardKey][0], cards[cardKey][1]);
@@ -198,7 +202,7 @@ PyPoker = {
             }
         },
 
-        updatePots: function(pots) {
+        updatePots: function (pots) {
             $('#pots').empty();
             for (potIndex in pots) {
                 $('#pots').append($(
@@ -209,7 +213,7 @@ PyPoker = {
             }
         },
 
-        setWinners: function(pot) {
+        setWinners: function (pot) {
             $('#players .player').addClass('fold');
             $('#players .player').removeClass('winner');
             for (playerIdKey in pot.player_ids) {
@@ -219,14 +223,13 @@ PyPoker = {
                 if (pot.winner_ids.indexOf(playerId) != -1) {
                     $player.removeClass('fold');
                     $player.addClass('winner');
-                }
-                else {
+                } else {
                     $player.addClass('fold');
                 }
             }
         },
 
-        changeCards: function(player, numCards) {
+        changeCards: function (player, numCards) {
             $player = $('#players .player[data-player-id=' + player.id + ']');
 
             $cards = $('.card', $player).slice(-numCards);
@@ -234,7 +237,7 @@ PyPoker = {
             $cards.slideUp(1000).slideDown(1000);
         },
 
-        onGameUpdate: function(message) {
+        onGameUpdate: function (message) {
             PyPoker.Player.resetControls();
             PyPoker.Player.resetTimers();
 
@@ -248,7 +251,7 @@ PyPoker = {
                     for (i = 0; i < PyPoker.Game.numCards; i++) {
                         $cards.append($('<div class="card large" data-key="' + i + '"></div>'));
                     }
-                    $('.card', $cards).click(function() {
+                    $('.card', $cards).click(function () {
                         if (PyPoker.Player.cardsChangeMode) {
                             $(this).toggleClass('selected');
                         }
@@ -257,6 +260,7 @@ PyPoker = {
                     break;
                 case 'game-over':
                     PyPoker.Game.gameOver();
+                    PyPoker.Game.updateRankingList();
                     break;
                 case 'fold':
                     PyPoker.Game.playerFold(message.player);
@@ -290,12 +294,65 @@ PyPoker = {
                 case 'showdown':
                     PyPoker.Game.updatePlayersCards(message.players);
                     break;
+                case 'update-ranking-list':
+                    PyPoker.Game.updateRankingList(message.ranking_list);
+                    break;
             }
-        }
+        },
+
+        updateRankingList: function (message) {
+            //message为有序的玩家数据元组列表 [(player_name, player_total_money, avg_profit), (player_name, player_total_money, avg_profit)]
+            // 获取排行榜表格的 tbody 元素
+            const rankingTableBody = document.querySelector('#ranking-table tbody');
+
+            // 清空当前表格内容
+            rankingTableBody.innerHTML = '';
+
+            // 遍历 message 数据，填充表格行
+            message.forEach((player, index) => {
+                const [playerName, totalMoney, avgProfit] = player;
+
+                // 创建表格行
+                const row = document.createElement('tr');
+
+                // 填充表格列
+                row.innerHTML = `
+                    <td>${index + 1}</td> <!-- 排名 -->
+                    <td>${playerName}</td> <!-- 玩家姓名 -->
+                    <td>$${totalMoney}</td> <!-- 总金额 -->
+                    <td>${avgProfit.toFixed(2)}</td> <!-- 平均收益 -->
+                `;
+
+                // 添加行到表格
+                rankingTableBody.appendChild(row);
+            });
+        },
+
+        fetchRankingData: function () {
+            const apiUrl = '/api/get-ranking'; // 后端 API 地址
+
+            // 异步获取排行榜数据
+            $.ajax({
+                url: apiUrl,
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    if (data && Array.isArray(data)) {
+                        // 调用 updateRankingList 更新表格
+                        PyPoker.Game.updateRankingList(data);
+                    } else {
+                        console.error('Invalid ranking data received:', data);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Failed to fetch ranking data:', status, error);
+                }
+            });
+        },
     },
 
     Logger: {
-        log: function(text) {
+        log: function (text) {
             $p0 = $('#game-status p[data-key="0"]');
             $p1 = $('#game-status p[data-key="1"]');
             $p2 = $('#game-status p[data-key="2"]');
@@ -315,30 +372,29 @@ PyPoker = {
 
         cardsChangeMode: false,
 
-        resetTimers: function() {
+        resetTimers: function () {
             // Reset timers
             $activeTimers = $('.timer.active');
             $activeTimers.TimeCircles().destroy();
             $activeTimers.removeClass('active');
         },
 
-        resetControls: function() {
+        resetControls: function () {
             // Reset controls
             PyPoker.Player.setCardsChangeMode(false);
             PyPoker.Player.disableBetMode();
         },
 
-        sliderHandler: function(value) {
+        sliderHandler: function (value) {
             if (value == 0) {
                 $('#bet-cmd').attr("value", "Check");
-            }
-            else {
+            } else {
                 $('#bet-cmd').attr("value", "$" + parseInt(value));
             }
             $('#bet-input').val(value);
         },
 
-        enableBetMode: function(message) {
+        enableBetMode: function (message) {
             PyPoker.Player.betMode = true;
 
             if (!message.min_score || $('#current-player').data('allowed-to-bet')) {
@@ -355,8 +411,7 @@ PyPoker = {
                     $('#fold-cmd').val('Pass')
                         .removeClass('btn-danger')
                         .addClass('btn-warning');
-                }
-                else {
+                } else {
                     $('#fold-cmd').val('Fold')
                         .addClass('btn-danger')
                         .removeClass('btn-warning');
@@ -366,9 +421,7 @@ PyPoker = {
                 $('#bet-input-wrapper').show();
                 $('#bet-cmd-wrapper').show();
                 $('#no-bet-cmd-wrapper').hide();
-            }
-
-            else {
+            } else {
                 $('#fold-cmd-wrapper').hide();
                 $('#bet-input-wrapper').hide();
                 $('#bet-cmd-wrapper').hide();
@@ -378,23 +431,99 @@ PyPoker = {
             $('#bet-controls').show();
         },
 
-        disableBetMode: function() {
+        enableBetModeNew: function (message) {
+            PyPoker.Player.betMode = true;
+
+            // 判断玩家是否允许下注
+            if (!message.min_score || $('#current-player').data('allowed-to-bet')) {
+                let minBet = parseInt(message.min_bet);
+                let maxBet = parseInt(message.max_bet);
+                let currentBet = minBet;
+
+                const betAmountInput = $('#bet-input');
+                const decreaseBetButton = $('#decrease-bet');
+                const increaseBetButton = $('#increase-bet');
+                const allinBetButton = $('#allin-bet');
+                const betButton = $('#bet-cmd');
+                allinBetButton.val(maxBet)
+
+                // 更新下注显示
+                function updateBetDisplay() {
+                    betAmountInput.val(currentBet);
+                    // 控制按钮状态
+                    decreaseBetButton.prop('disabled', currentBet <= minBet);
+                    increaseBetButton.prop('disabled', currentBet >= maxBet);
+                    // 更新下注按钮显示
+                    if (currentBet === 0) {
+                        betButton.val('Check');
+                    } else if (currentBet === minBet) {
+                        betButton.val('Call')
+                    } else if (currentBet === maxBet) {
+                        betButton.val('All In');
+                    } else {
+                        betButton.val('Bet ' + currentBet);
+                    }
+                }
+
+                // 初始化显示
+                updateBetDisplay();
+
+                // 增减下注金额
+                decreaseBetButton.off('click').on('click', function () {
+                    if (currentBet > minBet) {
+                        currentBet = Math.max(minBet, currentBet - 10);
+                        updateBetDisplay();
+                    }
+                });
+                increaseBetButton.off('click').on('click', function () {
+                    if (currentBet < maxBet) {
+                        currentBet = Math.min(maxBet, currentBet + 10);
+                        updateBetDisplay();
+                    }
+                });
+                // 弃牌控制
+                if (message.min_score) {
+                    $('#fold-cmd').val('Pass')
+                        .removeClass('btn-danger')
+                        .addClass('btn-warning');
+                } else {
+                    $('#fold-cmd').val('Fold')
+                        .addClass('btn-danger')
+                        .removeClass('btn-warning');
+                }
+
+                // 显示相关控件
+                $('#fold-cmd-wrapper').show();
+                $('#bet-input-wrapper').show();
+                $('#bet-cmd-wrapper').show();
+                $('#no-bet-cmd-wrapper').hide();
+            } else {
+                // 玩家不允许下注，隐藏控件
+                $('#fold-cmd-wrapper').hide();
+                $('#bet-input-wrapper').hide();
+                $('#bet-cmd-wrapper').hide();
+                $('#no-bet-cmd-wrapper').show();
+            }
+
+            $('#bet-controls').show();
+        },
+
+        disableBetMode: function () {
             $('#bet-controls').hide();
         },
 
-        setCardsChangeMode: function(changeMode) {
+        setCardsChangeMode: function (changeMode) {
             PyPoker.Player.cardsChangeMode = changeMode;
 
             if (changeMode) {
                 $('#cards-change-controls').show();
-            }
-            else {
+            } else {
                 $('#cards-change-controls').hide();
                 $('#current-player .card.selected').removeClass('selected');
             }
         },
 
-        onPlayerAction: function(message) {
+        onPlayerAction: function (message) {
             isCurrentPlayer = message.player.id == $('#current-player').attr('data-player-id');
 
             switch (message.action) {
@@ -421,30 +550,62 @@ PyPoker = {
                 "fg_width": 0.05,
                 "count_past_zero": false,
                 "time": {
-                    "Days": { show: false },
-                    "Hours": { show: false },
-                    "Minutes": { show: false },
-                    "Seconds": { show: true }
+                    "Days": {show: false},
+                    "Hours": {show: false},
+                    "Minutes": {show: false},
+                    "Seconds": {show: true}
                 }
             });
             $timers.addClass('active');
         },
 
-        onBet: function(message) {
-            PyPoker.Player.enableBetMode(message);
-            $("html, body").animate({ scrollTop: $(document).height() }, "slow");
+        onBet: function (message) {
+            // PyPoker.Player.enableBetMode(message);
+            PyPoker.Player.enableBetModeNew(message)
+            $("html, body").animate({scrollTop: $(document).height()}, "slow");
         },
 
-        onChangeCards: function(message) {
+        onChangeCards: function (message) {
             PyPoker.Player.setCardsChangeMode(true);
-            $("html, body").animate({ scrollTop: $(document).height() }, "slow");
-        }
+            $("html, body").animate({scrollTop: $(document).height()}, "slow");
+        },
+
+        toggleReadyStatus: function () {
+            // 获取按钮和状态指示器元素
+            const readyBtn = $('#ready-btn');
+            const statusIndicator = $('#status-indicator');
+
+            // 切换按钮的值和状态指示器的颜色
+            if (readyBtn.val() === 'Ready') {
+                readyBtn.val('Cancel'); // 按钮显示 "Cancel"
+                statusIndicator.css('background-color', 'green'); // 指示器变为绿色
+            } else {
+                readyBtn.val('Ready'); // 按钮显示 "Ready"
+                statusIndicator.css('background-color', 'red'); // 指示器变为红色
+            }
+        },
+
+        // 检查 readyBtn 状态并将其传回后台
+        checkReadyStateAndSend: function () {
+            const readyBtn = $('#ready-btn');
+            const isReady = readyBtn.val() === 'Cancel'; // 判断按钮状态是否为 "Cancel"
+
+            // 构造消息
+            const readyStateMessage = {
+                message_type: 'ready-state-change',
+                player_id: $('#current-player').attr('data-player-id'),
+                ready: isReady
+            };
+
+            // 将消息发送到后台
+            PyPoker.socket.send(JSON.stringify(readyStateMessage));
+        },
     },
 
     Room: {
         roomId: null,
 
-        createPlayer: function(player=undefined) {
+        createPlayer: function (player = undefined) {
             if (player === undefined) {
                 return $('<div class="player"><div class="player-info"></div></div>');
             }
@@ -470,13 +631,13 @@ PyPoker = {
             return $player;
         },
 
-        destroyRoom: function() {
+        destroyRoom: function () {
             PyPoker.Game.gameOver();
             PyPoker.Room.roomId = null;
             $('#players').empty();
         },
 
-        initRoom: function(message) {
+        initRoom: function (message) {
             PyPoker.Room.roomId = message.room_id;
             // Initializing the room
             $('#players').empty();
@@ -490,8 +651,7 @@ PyPoker = {
                     // This seat is taken
                     $seat.append(PyPoker.Room.createPlayer(message.players[playerId]));
                     $seat.attr('data-player-id', playerId);
-                }
-                else {
+                } else {
                     $seat.append(PyPoker.Room.createPlayer());
                     $seat.attr('data-player-id', null);
                 }
@@ -499,7 +659,8 @@ PyPoker = {
             }
         },
 
-        onRoomUpdate: function(message) {
+        onRoomUpdate: function (message) {
+            //玩家更新时接受服务器消息
             if (PyPoker.Room.roomId == null) {
                 PyPoker.Room.initRoom(message);
             }
@@ -510,7 +671,7 @@ PyPoker = {
                     player = message.players[playerId]
                     playerName = playerId == $('#current-player').attr('data-player-id') ? 'You' : player.name;
                     // Go through every available seat, find the one where the new player should sat and seated him
-                    $('.seat').each(function() {
+                    $('.seat').each(function () {
                         seat = $(this).attr('data-key');
                         if (message.player_ids[seat] == playerId) {
                             $(this).empty();
@@ -525,7 +686,7 @@ PyPoker = {
                     playerId = message.player_id;
                     playerName = $('.player[data-player-id=' + playerId + '] .player-name').text();
                     // Go through every available seat, find the one where the leaving player sat and kick him out
-                    $('.seat').each(function() {
+                    $('.seat').each(function () {
                         seatedPlayerId = $(this).attr('data-player-id');
                         if (seatedPlayerId == playerId) {
                             $(this).empty();
@@ -536,24 +697,25 @@ PyPoker = {
                     });
                     break;
             }
-        }
+        },
     },
 
-    init: function() {
+    init: function () {
         wsScheme = window.location.protocol == "https:" ? "wss://" : "ws://";
 
         PyPoker.socket = new WebSocket(wsScheme + location.host + "/poker/texas-holdem");
 
-        PyPoker.socket.onopen = function() {
+        PyPoker.socket.onopen = function () {
             PyPoker.Logger.log('Connected :)');
         };
 
-        PyPoker.socket.onclose = function() {
+        PyPoker.socket.onclose = function () {
             PyPoker.Logger.log('Disconnected :(');
             PyPoker.Room.destroyRoom();
         };
 
-        PyPoker.socket.onmessage = function(message) {
+        PyPoker.socket.onmessage = function (message) {
+            //onmessage用于接收服务端消息
             var data = JSON.parse(message.data);
 
             console.log(data);
@@ -577,12 +739,23 @@ PyPoker = {
                 case 'error':
                     PyPoker.Logger.log(data.error);
                     break;
+                case 'ping-state':
+                    // 后台发送请求查看前端准备按钮状态
+                    PyPoker.Player.checkReadyStateAndSend();
+                    break;
             }
         };
 
-        $('#cards-change-cmd').click(function() {
+        PyPoker.Game.fetchRankingData();
+
+        // 准备按钮
+        $('#ready-btn').click(function () {
+            PyPoker.Player.toggleReadyStatus();
+        });
+
+        $('#cards-change-cmd').click(function () {
             discards = [];
-            $('#current-player .card.selected').each(function() {
+            $('#current-player .card.selected').each(function () {
                 discards.push($(this).data('key'))
             });
             PyPoker.socket.send(JSON.stringify({
@@ -592,7 +765,7 @@ PyPoker = {
             PyPoker.Player.setCardsChangeMode(false);
         });
 
-        $('#fold-cmd').click(function() {
+        $('#fold-cmd').click(function () {
             PyPoker.socket.send(JSON.stringify({
                 'message_type': 'bet',
                 'bet': -1
@@ -600,7 +773,7 @@ PyPoker = {
             PyPoker.Player.disableBetMode();
         });
 
-        $('#no-bet-cmd').click(function() {
+        $('#no-bet-cmd').click(function () {
             PyPoker.socket.send(JSON.stringify({
                 'message_type': 'bet',
                 'bet': 0
@@ -608,10 +781,18 @@ PyPoker = {
             PyPoker.Player.disableBetMode();
         });
 
-        $('#bet-cmd').click(function() {
+        $('#bet-cmd').click(function () {
             PyPoker.socket.send(JSON.stringify({
                 'message_type': 'bet',
                 'bet': $('#bet-input').val()
+            }));
+            PyPoker.Player.disableBetMode();
+        });
+
+        $('#allin-bet').click(function () {
+            PyPoker.socket.send(JSON.stringify({
+                'message_type': 'bet',
+                'bet': $('#allin-bet').val()
             }));
             PyPoker.Player.disableBetMode();
         });
@@ -620,21 +801,21 @@ PyPoker = {
         PyPoker.Player.disableBetMode();
     },
 
-    onConnect: function(message) {
+    onConnect: function (message) {
         PyPoker.Logger.log("Connection established with poker5 server: " + message.server_id);
         $('#current-player').attr('data-player-id', message.player.id);
     },
 
-    onDisconnect: function(message) {
+    onDisconnect: function (message) {
 
     },
 
-    onError: function(message) {
+    onError: function (message) {
         PyPoker.Logger.log(message.error);
     }
 }
 
-$(document).ready(function() {
+$(document).ready(function () {
     PyPoker.init();
 })
 

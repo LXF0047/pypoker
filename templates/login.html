@@ -2,21 +2,19 @@
     {% include "header.html" %}
 
     <main id="main">
-        <h1>Welcome to PyPoker!</h1>
-
-        <form action="/join" method="post">
+        <form action="/login" method="post">
             <div id="login-bar">
                 <div class="form-group">
-                    <input type="text" class="form-control input-lg" name="name" placeholder="Your name">
+                    <input type="text" class="form-control input-lg" name="email" placeholder="Your name">
                 </div>
                 <div class="form-group">
-                    <input type="text" class="form-control input-lg" name="room-id" placeholder="Room id (optional)">
-                    <small class="form-text text-muted">Leave this blank to join any room available</small>
+                    <input type="password" class="form-control input-lg" name="password" placeholder="Your password">
                 </div>
                 <div class="form-group">
-                    <button class="btn btn-primary btn-lg login-link" type="submit">Start playing</button>
+                    <button class="btn btn-primary btn-lg login-link" type="submit">Go!</button>
                 </div>
             </div>
         </form>
+        <p>Don't have an account? <a href="/register">Register</a></p>
     </main>
 </div>

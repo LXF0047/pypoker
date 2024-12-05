@@ -9,10 +9,10 @@ from poker.score_detector import HoldemPokerScoreDetector
 class GamePlayersTest(unittest.TestCase):
     def _create_game_players(self):
         return GamePlayers([
-            Player("player-1", "Player One", 1000.0),
-            Player("player-2", "Player Two", 1000.0),
-            Player("player-3", "Player Three", 0.0),
-            Player("player-4", "Player Four", 1000.0),
+            Player("player-1", "Player One", 1000.0, 0),
+            Player("player-2", "Player Two", 1000.0, 0),
+            Player("player-3", "Player Three", 0.0, 0),
+            Player("player-4", "Player Four", 1000.0, 0),
         ])
 
     def test_round(self):

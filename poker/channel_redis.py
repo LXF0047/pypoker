@@ -9,66 +9,14 @@ from redis import exceptions, Redis
 from .channel import Channel, MessageFormatError, MessageTimeout, ChannelError
 
 
-class RedisListener:
-    def __init__(self, redis: Redis, channel: str):
-        self._pubsub = redis.pubsub()
-        self._pubsub.subscribe(channel)
-
-    def close(self):
-        self._pubsub.unsubscribe()
-
-    def recv_message(self, timeout_epoch: Optional[float] = None):
-        def timeout_handler(signum, frame):
-            raise MessageTimeout("Timed out")
-
-        if timeout_epoch:
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(int(round(timeout_epoch - time.time())))
-
-        try:
-            for message in self._pubsub.listen():
-                if message["type"] == "message":
-                    return json.loads(message["data"])
-        except ValueError:
-            # Invalid json
-            raise MessageFormatError(desc="Unable to decode the JSON message")
-        finally:
-            if timeout_epoch:
-                signal.alarm(0)
-
-
-class RedisPublisher:
-    def __init__(self, redis: Redis, channel: str):
-        self._redis = redis
-        self._channel = channel
-
-    def send_message(self, message):
-        # Encode the message
-        msg_serialized = json.dumps(message)
-        msg_encoded = msg_serialized.encode("utf-8")
-        self._redis.publish(self._channel, msg_encoded)
-
-
-class RedisPubSub(Channel):
-    def __init__(self, redis: Redis, channel_in: str, channel_out: str):
-        self._listener = RedisListener(redis, channel_in)
-        self._publisher = RedisPublisher(redis, channel_out)
-
-    def close(self):
-        self._listener.close()
-
-    def recv_message(self, timeout_epoch: Optional[float] = None):
-        return self._listener.recv_message(timeout_epoch)
-
-    def send_message(self, message):
-        self._publisher.send_message(message)
-
-
 class MessageQueue:
+    """
+    基于 Redis 列表实现的消息队列。
+    """
     def __init__(self, redis: Redis, queue_name: str, expire: int = 300):
         self._redis: Redis = redis
         self._queue_name: str = queue_name
-        self._expire: int = expire
+        self._expire: int = expire  # 过期时间
 
     @property
     def name(self):
@@ -78,15 +26,15 @@ class MessageQueue:
         msg_serialized = json.dumps(message)
         msg_encoded = msg_serialized.encode("utf-8")
         try:
-            self._redis.lpush(self._queue_name, msg_encoded)
-            self._redis.expire(self._queue_name, self._expire)
+            self._redis.lpush(self._queue_name, msg_encoded)  # 推入队列左端
+            self._redis.expire(self._queue_name, self._expire)  # 设置队列过期时间
         except exceptions.RedisError as e:
             raise ChannelError(e.args[0])
 
     def pop(self, timeout_epoch: Optional[float] = None) -> Any:
         while timeout_epoch is None or time.time() < timeout_epoch:
             try:
-                response = self._redis.rpop(self._queue_name)
+                response = self._redis.rpop(self._queue_name)  # 从队列右端弹出消息
                 if response is not None:
                     try:
                         # Deserialize and return the message
@@ -103,12 +51,25 @@ class MessageQueue:
 
 
 class ChannelRedis(Channel):
+    """
+    connect时channel_in的输入为O队列，channel_out的输入为I队列
+    PlayerServer中传入的channel_in为I队列，channel_out为O队列
+
+    PlayerClientConnector和PlayerClient中（新连接时）：
+    recv_message是从O队列的右端弹出消息   O队列   [msg5, msg4, msg3, msg2] ---> msg1
+    send_message是从I队列的左端推入消息   I队列   msg5 ---> [msg4, msg3, msg2, msg1]
+    PlayerServer中
+    send_message是从O队列的左端推入消息   O队列   msg5 ---> [msg4, msg3, msg2, msg1]
+    recv_message是从I队列的右端弹出消息   I队列   [msg5, msg4, msg3, msg2] ---> msg1
+    """
     def __init__(self, redis: Redis, channel_in: str, channel_out: str):
         self._queue_in = MessageQueue(redis, channel_in)
         self._queue_out = MessageQueue(redis, channel_out)
 
     def send_message(self, message: Any):
+        # 左入
         self._queue_out.push(message)
 
     def recv_message(self, timeout_epoch: Optional[float] = None) -> Any:
+        # 右出
         return self._queue_in.pop(timeout_epoch)
