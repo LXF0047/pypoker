@@ -61,9 +61,12 @@ class GamePlayers:
         self._folder_ids = set(self._dead_player_ids)
 
     def round(self, start_player_id: str, reverse=False) -> Generator[Player, None, None]:
+        """
+        a,b,c,d,e 如果starting_player_id是b，那么迭代器返回的结果为b,c,d,e,a
+        """
         # 按顺序遍历未弃牌玩家
-        start_item = self._player_ids.index(start_player_id)
-        step_multiplier = -1 if reverse else 1
+        start_item = self._player_ids.index(start_player_id)  # 获取起点玩家的索引
+        step_multiplier = -1 if reverse else 1  # 根据方向确定步进值
         for i in range(len(self._player_ids)):
             next_item = (start_item + (i * step_multiplier)) % len(self._player_ids)
             player_id = self._player_ids[next_item]
@@ -546,7 +549,6 @@ class GameBetRounder:
             raise GameError("No active players in this game")
 
         # The dealer might be inactive. Moving to the first active player
-        # 将庄家设置为第一个活跃玩家
         dealer = players_round[0]
 
         for k, player in enumerate(players_round):
