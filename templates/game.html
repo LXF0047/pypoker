@@ -35,11 +35,6 @@
                         <div id="fold-cmd-wrapper">
                             <input type="button" id="fold-cmd" class="btn btn-danger" value="Fold"/>
                         </div>
-{#                        <div id="bet-input-wrapper">#}
-{#                            <input id="bet-input" type="hidden" class="slider"#}
-{#                                   data-slider-id="bet-input"#}
-{#                                   data-slider-step="1"/>#}
-{#                        </div>#}
                         <div id="bet-input-wrapper">
                             <button id="decrease-bet" class="btn btn-secondary">-</button>
                             <input id="bet-input" type="text" readonly value="0"
@@ -48,6 +43,8 @@
                         </div>
                         <div id="bet-cmd-wrapper">
                             <input type="button" id="bet-cmd" class="btn btn-primary" value="Check"/>
+                            <br>
+                            <span id="bet-cmd-text" style="font-size: 20px; color: red;">看清楚了，这下面是ALL IN</span>
                             <button id="allin-bet" class="btn btn-secondary">All in</button>
                         </div>
                         <div id="no-bet-cmd-wrapper">

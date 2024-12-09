@@ -762,12 +762,12 @@ class PokerGame:
         - 摊牌流程
     """
     TIMEOUT_TOLERANCE = 2
-    BET_TIMEOUT = 120  # 每轮下注的超时时间
+    BET_TIMEOUT = 180  # 每轮下注的超时时间
 
     WAIT_AFTER_CARDS_ASSIGNMENT = 1  # 发牌后等待时间
     WAIT_AFTER_BET_ROUND = 1   # 下注轮次后等待时间
     WAIT_AFTER_SHOWDOWN = 1  # 摊牌后等待时间
-    WAIT_AFTER_WINNER_DESIGNATION = 3  # 赢家判定后等待时间
+    WAIT_AFTER_WINNER_DESIGNATION = 1  # 赢家判定后等待时间
 
     def __init__(self, id: str, game_players: GamePlayers, event_dispatcher: GameEventDispatcher,
                  deck_factory: DeckFactory, score_detector: ScoreDetector):
