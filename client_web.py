@@ -209,11 +209,6 @@ def texasholdem_poker_game(ws: WebSocket):
     return poker_game(ws, "texas-holdem-poker:lobby")
 
 
-@sockets.route("/poker/traditional")
-def traditional_poker_game(ws: WebSocket):
-    return poker_game(ws, "traditional-poker:lobby")
-
-
 def poker_game(ws: WebSocket, connection_channel: str):
     """
 

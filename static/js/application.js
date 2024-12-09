@@ -72,33 +72,19 @@ PyPoker = {
             PyPoker.Game.gameId = message.game_id;
             PyPoker.Game.emptyGameRecord();
 
-            if (message.game_type == "traditional") {
-                PyPoker.Game.numCards = 5;
-                PyPoker.Game.scoreCategories = {
-                    0: "Highest card",
-                    1: "Pair",
-                    2: "Double pair",
-                    3: "Three of a kind",
-                    4: "Straight",
-                    5: "Full house",
-                    6: "Flush",
-                    7: "Four of a kind",
-                    8: "Straight flush"
-                };
-            } else {
-                PyPoker.Game.numCards = 2;
-                PyPoker.Game.scoreCategories = {
-                    0: "Highest card",
-                    1: "Pair",
-                    2: "Double pair",
-                    3: "Three of a kind",
-                    4: "Straight",
-                    5: "Flush",
-                    6: "Full house",
-                    7: "Four of a kind",
-                    8: "Straight flush"
-                };
-            }
+            PyPoker.Game.numCards = 2;
+            PyPoker.Game.scoreCategories = {
+                0: "Highest card",
+                1: "Pair",
+                2: "Double pair",
+                3: "Three of a kind",
+                4: "Straight",
+                5: "Flush",
+                6: "Full house",
+                7: "Four of a kind",
+                8: "Straight flush"
+            };
+
 
             $('#game-wrapper').addClass(message.game_type);
 
@@ -441,8 +427,10 @@ PyPoker = {
                 let currentBet = minBet;
 
                 const betAmountInput = $('#bet-input');
-                const decreaseBetButton = $('#decrease-bet');
+                const decreaseBetQuickButton = $('#decrease-bet');
+                const decreaseBetButton = $('#decrease-bet-quick');
                 const increaseBetButton = $('#increase-bet');
+                const increaseBetQuickButton = $('#increase-bet-quick');
                 const allinBetButton = $('#allin-bet');
                 const betButton = $('#bet-cmd');
                 allinBetButton.val(maxBet)
@@ -452,7 +440,9 @@ PyPoker = {
                     betAmountInput.val(currentBet);
                     // 控制按钮状态
                     decreaseBetButton.prop('disabled', currentBet <= minBet);
+                    decreaseBetQuickButton.prop('disabled', currentBet <= minBet);
                     increaseBetButton.prop('disabled', currentBet >= maxBet);
+                    increaseBetQuickButton.prop('disabled', currentBet >= maxBet);
                     // 更新下注按钮显示
                     if (currentBet === 0) {
                         betButton.val('Check');
@@ -475,9 +465,21 @@ PyPoker = {
                         updateBetDisplay();
                     }
                 });
+                decreaseBetQuickButton.off('click').on('click', function () {
+                    if (currentBet > minBet) {
+                        currentBet = Math.max(minBet, currentBet - 50);
+                        updateBetDisplay();
+                    }
+                });
                 increaseBetButton.off('click').on('click', function () {
                     if (currentBet < maxBet) {
                         currentBet = Math.min(maxBet, currentBet + 10);
+                        updateBetDisplay();
+                    }
+                });
+                increaseBetQuickButton.off('click').on('click', function () {
+                    if (currentBet < maxBet) {
+                        currentBet = Math.min(maxBet, currentBet + 50);
                         updateBetDisplay();
                     }
                 });
