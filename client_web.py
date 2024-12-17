@@ -30,7 +30,8 @@ sockets = Sockets(app)
 redis_url = os.environ["REDIS_URL"]
 redis = redis.from_url(redis_url)
 
-INVITE_CODE = "longquanshanzhuanglibaoku"
+INVITE_CODE = "asd"
+
 
 # sudo lsof -ti:5000 | xargs sudo kill -9
 
@@ -122,22 +123,11 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route('/api/get-ranking', methods=['GET'])
 def get_ranking():
     ranking_data = get_ranking_list()
     return jsonify(ranking_data)  # 返回 JSON 格式
-
-
-def check_room_exists(room_id):
-    return redis.exists(f"room:{room_id}:status")
-
-
-def get_game_status(room_id):
-    return redis.get(f"room:{room_id}:status")
-
-
-def set_game_status(room_id, status):
-    redis.set(f"room:{room_id}:status", status)
 
 
 @app.route("/join", methods=["GET", "POST"])
@@ -145,32 +135,18 @@ def set_game_status(room_id, status):
 def join():
     if request.method == "POST":
         action = request.form.get("action")
-
         if action == "join":
-            room_id = request.form.get("room-id")
+            room_id = request.form.get("room-id").strip()
             if not room_id:
-                flash("Room id can't be empty!")
-                return redirect(url_for("join"))
-            # 检查房间是否存在
-            if not check_room_exists(room_id):
-                flash("Room does not exist!")
-                return redirect(url_for("join"))
-
-            # 检查游戏状态
-            game_status = get_game_status(room_id).decode('utf-8')
-            if game_status != "waiting":
-                flash("Game is already in progress. Unable to join.")
                 return redirect(url_for("join"))
 
             # 玩家信息从数据库读取后保存在session中
-
             session["room-id"] = room_id
             session["player-id"] = current_user.id
             session["player-name"] = current_user.username
             session["player-money"] = current_user.money
             session['player-loan'] = current_user.loan
 
-            flash(f"Success join room: {room_id}！")
             return render_template("index.html",
                                    player_id=session["player-id"],
                                    username=session["player-name"],
@@ -186,9 +162,7 @@ def join():
             session["player-name"] = current_user.username
             session["player-money"] = current_user.money
             session['player-loan'] = current_user.loan
-            # 更新房间状态
-            set_game_status(room_id, "waiting")
-            flash(f"New room: {room_id}！")
+
             return render_template("index.html",
                                    player_id=session["player-id"],
                                    username=session["player-name"],

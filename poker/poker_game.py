@@ -60,12 +60,12 @@ class GamePlayers:
         # 在游戏的某些环节（如新的一轮开始之前），需要清除上一轮中未出局玩家的弃牌状态，但保留已出局玩家的状态。
         self._folder_ids = set(self._dead_player_ids)
 
-    def round(self, start_player_id: str, reverse=False) -> Generator[Player, None, None]:
+    def round(self, dealer_id: str, reverse=False) -> Generator[Player, None, None]:
         """
-        a,b,c,d,e 如果starting_player_id是b，那么迭代器返回的结果为b,c,d,e,a
+        a,b,c,d,e 如果dealer_id是b，那么迭代器返回的结果为e,a,b,c,d
         """
         # 按顺序遍历未弃牌玩家
-        start_item = self._player_ids.index(start_player_id)  # 获取起点玩家的索引
+        start_item = self._player_ids.index(dealer_id) + 3  # 获取起点玩家的索引，+3为了让小盲和大盲在最后
         step_multiplier = -1 if reverse else 1  # 根据方向确定步进值
         for i in range(len(self._player_ids)):
             next_item = (start_item + (i * step_multiplier)) % len(self._player_ids)
@@ -525,70 +525,64 @@ class GameBetRounder:
             dealer.money
         )
 
-    def bet_round(self, dealer_id: str, bets: Dict[str, float], get_bet_function, on_bet_function=None) -> Optional[
+    def bet_round(self, dealer_id: str, bets: Dict[str, float], get_bet_function, on_bet_function=None, blind_bet: bool=False) -> Optional[
         PlayerServer]:
-        """
-        执行一轮完整的下注操作。
-
-        参数：
-        - dealer_id (str): 当前庄家的玩家 ID。
-        - bets (Dict[str, float]): 玩家当前的下注状态，键为玩家 ID，值为已下注金额。
-        - get_bet_function (function): 用于获取玩家下注金额的回调函数。
-        - on_bet_function (function, 可选): 用于处理玩家下注事件的回调函数。
-
-        返回：
-        - Optional[PlayerServer]: 返回最后加注的玩家。如果没有加注，则返回第一个进行检查的玩家。
-        """
         """
         performs a complete bet round
         returns the player who last raised - if nobody raised, then the first one to check
         """
-        players_round = list(self._game_players.round(dealer_id))
+        players_round = list(self._game_players.round(dealer_id))  # 'e', 'a', 'b', 'c', 'd'
 
         if len(players_round) == 0:
             raise GameError("No active players in this game")
 
-        # The dealer might be inactive. Moving to the first active player
-        dealer = players_round[0]
+        # The starting_player might be inactive. Moving to the first active player
+        # 非盲注轮从小盲开始，盲注轮从大盲+1开始
+        starting_player = players_round[0] if blind_bet else players_round[-2]
 
         for k, player in enumerate(players_round):
             if player.id not in bets:
                 bets[player.id] = 0
+            # 检查当前下注是否比上家下注小
             if bets[player.id] < 0 or (k > 0 and bets[player.id] < bets[players_round[k - 1].id]):
                 # Ensuring the bets dictionary makes sense
                 raise ValueError("Invalid bets dictionary")
 
-        best_player = None
+        best_player = None  # 最后加注的玩家
 
-        while dealer is not None and dealer != best_player:
-            next_player = self._game_players.get_next(dealer.id)
+        while starting_player is not None and starting_player != best_player:
+            next_player = self._game_players.get_next(starting_player.id)
 
-            max_bet = self._get_max_bet(dealer, bets)
-            min_bet = self._get_min_bet(dealer, bets)
+            # 计算当前玩家下注的上下限
+            max_bet = self._get_max_bet(starting_player, bets)
+            min_bet = self._get_min_bet(starting_player, bets)
 
             if max_bet == 0.0:
                 # No bet required to this player (either he is all-in or all other players are all-in)
                 bet = 0.0
             else:
                 # This player isn't all in, and there's at least one other player who is not all-in
-                bet = get_bet_function(player=dealer, min_bet=min_bet, max_bet=max_bet, bets=bets)
+                # 接收下注数据
+                bet = get_bet_function(player=starting_player, min_bet=min_bet, max_bet=max_bet, bets=bets)
 
             if bet is None:
-                self._game_players.remove(dealer.id)
+                self._game_players.remove(starting_player.id)
             elif bet == -1:
-                self._game_players.fold(dealer.id)
+                self._game_players.fold(starting_player.id)
             else:
                 if bet < min_bet or bet > max_bet:
                     raise ValueError("Invalid bet")
-                dealer.take_money(bet)
-                bets[dealer.id] += bet
+                starting_player.take_money(bet)
+                bets[starting_player.id] += bet
                 if best_player is None or bet > min_bet:
-                    best_player = dealer
+                    best_player = starting_player
 
             if on_bet_function:
-                on_bet_function(dealer, bet, min_bet, max_bet, bets)
+                on_bet_function(starting_player, bet, min_bet, max_bet, bets)
 
-            dealer = next_player
+            starting_player = next_player  # 移动到下一个玩家
+
+        # 返回最后一个加注的玩家，如果没有返回第一个过牌的玩家
         return best_player
 
 
@@ -631,7 +625,7 @@ class GameBetHandler:
         """
         return any(k for k in bets if bets[k] > 0)
 
-    def bet_round(self, dealer_id: str, bets: Dict[str, float], pots: GamePots):
+    def bet_round(self, dealer_id: str, bets: Dict[str, float], pots: GamePots, blind_bet: bool = False):
         """
         执行一轮下注操作。
 
@@ -644,7 +638,7 @@ class GameBetHandler:
         - PlayerServer: 返回最后加注的玩家。如果没有加注，则返回第一个进行检查的玩家。
         """
         # 调用 bet_rounder 执行下注轮次逻辑
-        best_player = self._bet_rounder.bet_round(dealer_id, bets, self.get_bet, self.on_bet)
+        best_player = self._bet_rounder.bet_round(dealer_id, bets, self.get_bet, self.on_bet, blind_bet)  # [b,c,d,e,a]
         gevent.sleep(self._wait_after_round)
         if self.any_bet(bets):
             pots.add_bets(bets)

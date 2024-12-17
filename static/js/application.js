@@ -427,8 +427,8 @@ PyPoker = {
                 let currentBet = minBet;
 
                 const betAmountInput = $('#bet-input');
-                const decreaseBetQuickButton = $('#decrease-bet');
-                const decreaseBetButton = $('#decrease-bet-quick');
+                const decreaseBetButton = $('#decrease-bet');
+                const decreaseBetQuickButton = $('#decrease-bet-quick');
                 const increaseBetButton = $('#increase-bet');
                 const increaseBetQuickButton = $('#increase-bet-quick');
                 const allinBetButton = $('#allin-bet');

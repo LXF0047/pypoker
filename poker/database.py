@@ -7,6 +7,7 @@
 import sqlite3
 
 DATABASE_PATH = "/home/pypoker/user.db"
+INIT_MONEY = 3000
 
 
 def get_db_connection():
@@ -27,7 +28,7 @@ def update_player_in_db(player_data):
         cursor.execute("""
             UPDATE users
             SET money = ?,
-                loan = loan + ?,
+                loan = ?,
                 hands = hands + 1
             WHERE id = ?
         """, (player_data["money"], player_data["loan"], player_data["id"]))
@@ -49,10 +50,10 @@ def reset_player_in_db():
         # 将所有数据重置为默认值
         cursor.execute("""
             UPDATE users
-            SET money = 1000,
+            SET money = ?,
                 loan = 0,
                 hands = 0
-        """)
+        """, (INIT_MONEY,))
         conn.commit()
     except Exception as e:
         print(f"Error reset player data in database: {e}")
@@ -118,8 +119,10 @@ def get_ranking_list():
     for player_data in all_player_data:
         player_name, player_money, player_loan, player_hands = player_data[0], player_data[1], player_data[2], \
             player_data[3]
+        if player_name.startswith('admin'):
+            continue
         player_total_money = player_money - (1000 * player_loan)
-        avg_profit = 0 if player_hands == 0 else round((player_total_money - 1000) / player_hands) * 100
+        avg_profit = 0 if player_hands == 0 else round((player_total_money - INIT_MONEY) / player_hands) * 100
         ranking_data.append((player_name, player_total_money, avg_profit))
     ranking_data = sorted(ranking_data, key=lambda x: x[2], reverse=True)
 
@@ -165,16 +168,48 @@ def change_email_in_db(old_email, new_email):
         conn.close()
 
 
+def query_player_msg_in_db(player_name, column_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"SELECT {column_name} FROM users WHERE username=?", (player_name,))
+        result = cursor.fetchone()
+        if result is not None:
+            return result[0]
+    except Exception as e:
+        print(f"Error querying player data from database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_player_msg_in_db(player_name, column_name, value):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"UPDATE users SET {column_name}=? WHERE username=?", (value, player_name))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating player data in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 if __name__ == '__main__':
     # 重置数据库
-    # reset_player_in_db()
+    reset_player_in_db()
     # 查询当前所有数据
     query_all_data()
     # 查询当前排名
     # res = query_ranking_in_db()
     # print(res)
     # 删除玩家
-    # delete_player_in_db('1123')
+    # delete_player_in_db('admin4')
     # 重命名玩家
-    # rename_player_in_db('Asd', '')
+    # rename_player_in_db('赌神', 'Tom Dwan')
     # change_email_in_db('taozhen0109@163.com', 'taozhen')
+    # 查询玩家数据
+    # print(query_player_msg_in_db('你跟不跟吧', 'money'))
+    # 更新玩家数据
+    # update_player_msg_in_db('taozhen', 'money', 3000)

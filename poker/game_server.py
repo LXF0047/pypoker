@@ -84,7 +84,7 @@ class GameServer:
             self._logger.info("Player {}: joining public room".format(player.player))
             return self._join_any_public_room(player.player)
         else:
-            self._logger.info("Player {}: joining private room {}".format(player.player, player.room_id))
+            self._logger.info("Player {}: joining private room {}".format(player.player.name, player.room_id))
             return self._join_private_room(player.player, player.room_id)
 
     def start(self):
@@ -97,7 +97,7 @@ class GameServer:
             # 遍历大厅中玩家， new_players是一个迭代器持续读取大厅中新加入的玩家
             for player in self.new_players():
                 # Player successfully connected: joining the lobby
-                self._logger.info("{}: {} connected".format(self, player.player))
+                self._logger.info("{}: {} connected".format(self, player.player.name))
                 try:
                     # player: ConnectedPlayer(包含PlayerServer和room_id)，加入private还是public房间，将player加入到指定房间并返回GameRoom
                     room = self._join_room(player)  # 此时玩家在GameRoom的_room_players中

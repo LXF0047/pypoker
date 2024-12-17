@@ -63,7 +63,7 @@ class PlayerClientConnector:
                     "id": player.id,
                     "name": player.name,
                     "money": player.money,
-                    "loan": 0,
+                    "loan": player.loan,
                 },
                 "session_id": session_id,
                 "room_id": room_id

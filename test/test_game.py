@@ -9,31 +9,34 @@ from poker.score_detector import HoldemPokerScoreDetector
 class GamePlayersTest(unittest.TestCase):
     def _create_game_players(self):
         return GamePlayers([
-            Player("player-1", "Player One", 1000.0, 0),
-            Player("player-2", "Player Two", 1000.0, 0),
-            Player("player-3", "Player Three", 0.0, 0),
-            Player("player-4", "Player Four", 1000.0, 0),
+            Player("player-1", "Player One", 1000.0, 0, True),
+            Player("player-2", "Player Two", 1000.0, 0, True),
+            Player("player-3", "Player Three", 0.0, 0, True),
+            Player("player-4", "Player Four", 1000.0, 0, True),
         ])
 
     def test_round(self):
+        # 测试指定庄家后循环列表的顺序，庄家在列表中的最后一位，小盲在第一位
         game_players = self._create_game_players()
         round = game_players.round("player-2")
-        self.assertEqual("player-2", round.__next__().id)
         self.assertEqual("player-3", round.__next__().id)
         self.assertEqual("player-4", round.__next__().id)
         self.assertEqual("player-1", round.__next__().id)
+        self.assertEqual("player-2", round.__next__().id)
         self.assertRaises(StopIteration, round.__next__)
 
     def test_round_with_fold(self):
+        # 测试带弃牌的循环列表顺序
         game_players = self._create_game_players()
         game_players.fold("player-4")
         round = game_players.round("player-2")
-        self.assertEqual("player-2", round.__next__().id)
         self.assertEqual("player-3", round.__next__().id)
         self.assertEqual("player-1", round.__next__().id)
+        self.assertEqual("player-2", round.__next__().id)
         self.assertRaises(StopIteration, round.__next__)
 
     def test_round_with_no_dealer(self):
+        # 无庄家的循环列表顺序
         game_players = self._create_game_players()
         game_players.fold("player-2")
         round = game_players.round("player-2")
@@ -115,10 +118,10 @@ class GamePlayersTest(unittest.TestCase):
 
 class GamePotsTest(unittest.TestCase):
     def test_add_bets_with_one_round(self):
-        player1 = Player("player-1", "Player One", 1000)
-        player2 = Player("player-2", "Player Two", 1000)
-        player3 = Player("player-3", "Player Three", 1000)
-        player4 = Player("player-4", "Player Four", 1000)
+        player1 = Player("player-1", "Player One", 1000, 0, True)
+        player2 = Player("player-2", "Player Two", 1000, 0, True)
+        player3 = Player("player-3", "Player Three", 1000, 0, True)
+        player4 = Player("player-4", "Player Four", 1000, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
         game_pots = GamePots(game_players)
@@ -134,10 +137,10 @@ class GamePotsTest(unittest.TestCase):
         self.assertEquals([player3, player4], game_pots[1].players)
 
     def test_add_bets_with_two_rounds(self):
-        player1 = Player("player-1", "Player One", 1000)
-        player2 = Player("player-2", "Player Two", 1000)
-        player3 = Player("player-3", "Player Three", 1000)
-        player4 = Player("player-4", "Player Four", 1000)
+        player1 = Player("player-1", "Player One", 1000, 0, True)
+        player2 = Player("player-2", "Player Two", 1000, 0, True)
+        player3 = Player("player-3", "Player Three", 1000, 0, True)
+        player4 = Player("player-4", "Player Four", 1000, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
         game_pots = GamePots(game_players)
@@ -406,10 +409,11 @@ class GameHoldemWinnerDetectorIntegrationTest(unittest.TestCase):
 
 class GameBetRounderTest(unittest.TestCase):
     def test_bet_round_everyone_fold(self):
-        player1 = Player("player-1", "Player One", 1000.0)
-        player2 = Player("player-2", "Player Two", 1000.0)
-        player3 = Player("player-3", "Player Three", 1000.0)
-        player4 = Player("player-4", "Player Four", 1000.0)
+        # 非盲注轮所有人弃牌，测试剩余的最后一个人玩家
+        player1 = Player("player-1", "Player One", 1000, 0, True)
+        player2 = Player("player-2", "Player Two", 1000.0, 0, True)
+        player3 = Player("player-3", "Player Three", 1000.0, 0, True)
+        player4 = Player("player-4", "Player Four", 1000.0, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
 
@@ -418,25 +422,24 @@ class GameBetRounderTest(unittest.TestCase):
 
         bet_rounder = GameBetRounder(game_players)
 
-        best_player = bet_rounder.bet_round("player-3", {}, bet_function_mock)
-
-        self.assertEquals("player-2", best_player.id)
-
-        self.assertTrue(game_players.is_active("player-2"))
-        self.assertFalse(game_players.is_active("player-1"))
-        self.assertFalse(game_players.is_active("player-3"))
+        # 非盲注轮
+        best_player = bet_rounder.bet_round("player-3", {}, bet_function_mock, None)
+        self.assertEquals("player-3", best_player.id)
         self.assertFalse(game_players.is_active("player-4"))
+        self.assertFalse(game_players.is_active("player-1"))
+        self.assertFalse(game_players.is_active("player-2"))
+        self.assertTrue(game_players.is_active("player-3"))
 
     def test_bet_round_everyone_fold_with_blinds(self):
         bets = {
-            "player-1": 400,
-            "player-2": 1000
+            "player-4": 400,
+            "player-1": 1000
         }
 
-        player1 = Player("player-1", "Player One", 1000.0)
-        player2 = Player("player-2", "Player Two", 1000.0)
-        player3 = Player("player-3", "Player Three", 1000.0)
-        player4 = Player("player-4", "Player Four", 1000.0)
+        player1 = Player("player-1", "Player One", 1000.0, 0, True)
+        player2 = Player("player-2", "Player Two", 1000.0, 0, True)
+        player3 = Player("player-3", "Player Three", 1000.0, 0, True)
+        player4 = Player("player-4", "Player Four", 1000.0, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
 
@@ -445,20 +448,21 @@ class GameBetRounderTest(unittest.TestCase):
 
         bet_rounder = GameBetRounder(game_players)
 
-        best_player = bet_rounder.bet_round("player-3", bets, bet_function_mock)
+        best_player = bet_rounder.bet_round("player-3", bets, bet_function_mock, None, True)
 
-        self.assertEquals("player-2", best_player.id)
+        self.assertEquals("player-1", best_player.id)
 
-        self.assertTrue(game_players.is_active("player-2"))
-        self.assertFalse(game_players.is_active("player-1"))
-        self.assertFalse(game_players.is_active("player-3"))
         self.assertFalse(game_players.is_active("player-4"))
+        self.assertTrue(game_players.is_active("player-1"))
+        self.assertFalse(game_players.is_active("player-2"))
+        self.assertFalse(game_players.is_active("player-3"))
 
     def test_bet_round_everyone_check(self):
-        player1 = Player("player-1", "Player One", 1000.0)
-        player2 = Player("player-2", "Player Two", 1000.0)
-        player3 = Player("player-3", "Player Three", 1000.0)
-        player4 = Player("player-4", "Player Four", 1000.0)
+        # 所有人过牌
+        player1 = Player("player-1", "Player One", 1000.0, 0, True)
+        player2 = Player("player-2", "Player Two", 1000.0, 0, True)
+        player3 = Player("player-3", "Player Three", 1000.0, 0, True)
+        player4 = Player("player-4", "Player Four", 1000.0, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
 
@@ -469,18 +473,43 @@ class GameBetRounderTest(unittest.TestCase):
 
         best_player = bet_rounder.bet_round("player-3", {}, bet_function_mock)
 
-        self.assertEquals("player-3", best_player.id)
+        self.assertEquals("player-4", best_player.id)
+
+        self.assertTrue(game_players.is_active("player-4"))
+        self.assertTrue(game_players.is_active("player-1"))
+        self.assertTrue(game_players.is_active("player-2"))
+        self.assertTrue(game_players.is_active("player-3"))
+
+    def test_bet_round_everyone_call(self):
+        # 非盲注轮所有人跟注，从小盲开始
+        player1 = Player("player-1", "Player One", 1000.0, 0, True)
+        player2 = Player("player-2", "Player Two", 1000.0, 0, True)
+        player3 = Player("player-3", "Player Three", 1000.0, 0, True)
+        player4 = Player("player-4", "Player Four", 1000.0, 0, True)
+
+        game_players = GamePlayers([player1, player2, player3, player4])
+
+        def bet_function_mock(player, min_bet, max_bet, bets):
+            return min_bet
+
+        bet_rounder = GameBetRounder(game_players)
+
+        best_player = bet_rounder.bet_round("player-3", {"player-4": 300, "player-1": 600}, bet_function_mock, None, False)
+
+        self.assertEquals("player-4", best_player.id)
 
         self.assertTrue(game_players.is_active("player-1"))
         self.assertTrue(game_players.is_active("player-2"))
         self.assertTrue(game_players.is_active("player-3"))
         self.assertTrue(game_players.is_active("player-4"))
 
-    def test_bet_round_everyone_call(self):
-        player1 = Player("player-1", "Player One", 1000.0)
-        player2 = Player("player-2", "Player Two", 1000.0)
-        player3 = Player("player-3", "Player Three", 1000.0)
-        player4 = Player("player-4", "Player Four", 1000.0)
+
+    def test_blind_round_everyone_call(self):
+        # 盲注轮所有人跟注，从
+        player1 = Player("player-1", "Player One", 1000.0, 0, True)
+        player2 = Player("player-2", "Player Two", 1000.0, 0, True)
+        player3 = Player("player-3", "Player Three", 1000.0, 0, True)
+        player4 = Player("player-4", "Player Four", 1000.0, 0, True)
 
         game_players = GamePlayers([player1, player2, player3, player4])
 
@@ -489,9 +518,9 @@ class GameBetRounderTest(unittest.TestCase):
 
         bet_rounder = GameBetRounder(game_players)
 
-        best_player = bet_rounder.bet_round("player-3", {"player-1": 300, "player-2": 600}, bet_function_mock)
+        best_player = bet_rounder.bet_round("player-3", {"player-4": 300, "player-1": 600}, bet_function_mock, None, True)
 
-        self.assertEquals("player-3", best_player.id)
+        self.assertEquals("player-4", best_player.id)
 
         self.assertTrue(game_players.is_active("player-1"))
         self.assertTrue(game_players.is_active("player-2"))
