@@ -8,7 +8,7 @@ class Cards:
     def __init__(self, cards: List[Card], lowest_rank=2):
         # Sort the list of cards in a descending order
         self._sorted = sorted(cards, key=int, reverse=True)
-        self._lowest_rank: int = lowest_rank
+        self._lowest_rank: int = lowest_rank  # 用于处理特殊情况（如A可以作为1来构成顺子）。
 
     def _group_by_ranks(self) -> Dict[int, List[Card]]:
         # Group cards by their ranks.
@@ -68,6 +68,9 @@ class Cards:
     def full_house(self) -> Optional[List[Card]]:
         trips_list = self._x_sorted_list(3)
         pair_list = self._x_sorted_list(2)
+        if len(trips_list) >= 2:
+            # 使用第一组三条作为三条，第二组三条作为对子
+            return self._merge_with_cards(trips_list[0] + trips_list[1][0:2])[0:5]
         try:
             return self._merge_with_cards(trips_list[0] + pair_list[0])[0:5]
         except IndexError:

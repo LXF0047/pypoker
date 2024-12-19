@@ -15,10 +15,10 @@ class Card:
         14: "A",
     }
     SUITS = {
-        3: u"\u2665",  # Hearts
-        2: u"\u2666",  # Diamonds
-        1: u"\u2663",  # Clubs
-        0: u"\u2660",  # Spades
+        3: u"\u2665",  # 红心
+        2: u"\u2666",  # 方片
+        1: u"\u2663",  # 梅花
+        0: u"\u2660",  # 黑桃
     }
 
     def __init__(self, rank: int, suit: int):
