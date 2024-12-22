@@ -280,7 +280,7 @@ PyPoker = {
                 case 'showdown':
                     PyPoker.Game.updatePlayersCards(message.players);
                     break;
-                case 'update-ranking-list':
+                case 'update-ranking-data':
                     PyPoker.Game.updateRankingList(message.ranking_list);
                     break;
             }
@@ -288,7 +288,6 @@ PyPoker = {
 
         updateRankingList: function (message) {
             //message为有序的玩家数据元组列表 [(player_name, player_total_money, avg_profit), (player_name, player_total_money, avg_profit)]
-            // 获取排行榜表格的 tbody 元素
             const rankingTableBody = document.querySelector('#ranking-table tbody');
 
             // 清空当前表格内容
@@ -296,7 +295,7 @@ PyPoker = {
 
             // 遍历 message 数据，填充表格行
             message.forEach((player, index) => {
-                const [playerName, totalMoney, avgProfit] = player;
+                const [playerName, totalMoney, avgProfit, dailyProfit] = player;
 
                 // 创建表格行
                 const row = document.createElement('tr');
@@ -307,6 +306,7 @@ PyPoker = {
                     <td>${playerName}</td> <!-- 玩家姓名 -->
                     <td>$${totalMoney}</td> <!-- 总金额 -->
                     <td>${avgProfit.toFixed(2)}</td> <!-- 平均收益 -->
+                    <td>${dailyProfit.toFixed(2)}</td> <!-- mei日 -->
                 `;
 
                 // 添加行到表格

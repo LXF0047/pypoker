@@ -16,6 +16,22 @@ def get_db_connection():
     return conn
 
 
+def drop_tabel(table_name):
+    # 删除daily表
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"""
+            DROP TABLE {table_name}
+        """)
+        conn.commit()
+    except Exception as e:
+        print(f"Error dropping daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def update_player_in_db(player_data):
     """
     将玩家数据插入或更新到数据库
@@ -63,11 +79,11 @@ def reset_player_in_db():
         conn.close()
 
 
-def query_all_data():
+def query_all_data(table):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT * FROM users")
+        cursor.execute(f"SELECT * FROM {table}")
         rows = cursor.fetchall()
 
         if not rows:
@@ -100,7 +116,7 @@ def query_ranking_in_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT username, money, loan, hands FROM users")
+        cursor.execute("SELECT username, money, loan, hands, id FROM users")
         rows = cursor.fetchall()
         # 结果转为列表
         return [list(row) for row in rows]
@@ -115,15 +131,17 @@ def query_ranking_in_db():
 def get_ranking_list():
     # 获取排行列表
     all_player_data = query_ranking_in_db()
+    daily_ranking = get_daily_ranking()
     ranking_data = []
     for player_data in all_player_data:
-        player_name, player_money, player_loan, player_hands = player_data[0], player_data[1], player_data[2], \
-            player_data[3]
+        player_name, player_money, player_loan, player_hands, _ = player_data[0], player_data[1], player_data[2], \
+            player_data[3], player_data[4]
         if player_name.startswith('admin'):
             continue
         player_total_money = player_money - (1000 * player_loan)
-        avg_profit = 0 if player_hands == 0 else round((player_total_money - INIT_MONEY) / player_hands) * 100
-        ranking_data.append((player_name, player_total_money, avg_profit))
+        avg_profit = 0 if player_hands == 0 else round((player_total_money - INIT_MONEY) / player_hands, 2) * 100
+        daily_profit = daily_ranking.get(player_name, 0)
+        ranking_data.append((player_name, player_total_money, avg_profit, daily_profit))
     ranking_data = sorted(ranking_data, key=lambda x: x[2], reverse=True)
 
     return ranking_data
@@ -196,11 +214,194 @@ def update_player_msg_in_db(player_name, column_name, value):
         conn.close()
 
 
+def create_daily_table():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                start_money FLOAT DEFAULT ?,
+                latest_money FLOAT DEFAULT ?,
+                date DATE DEFAULT (date('now', 'localtime'))
+            )
+        """, (INIT_MONEY, INIT_MONEY))
+        conn.commit()
+    except Exception as e:
+        print(f"Error creating table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_daily_table(username, money):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE daily
+            SET latest_money = ?
+            WHERE username = ? AND date = date('now', 'localtime')
+        """, (money, username))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def insert_daily_table(username, start_money, latest_money):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO daily (username, start_money, latest_money, date)
+            VALUES (?, ?, ?, date('now', 'localtime'))
+        """, (username, start_money, latest_money))
+        conn.commit()
+    except Exception as e:
+        print(f"Error inserting into daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def is_player_active_today(username):
+    # 查询daily表中是否有username为username的数据且date为今天的数据，如果有返回True，否则返回False
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT * FROM daily
+            WHERE username = ? AND date = date('now', 'localtime')
+        """, (username,))
+        result = cursor.fetchone()
+        if result is not None:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error querying daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_daily_ranking():
+    # 查所有玩家现在的数据
+    all_player_data = query_ranking_in_db()
+    for player_data in all_player_data:
+        player_name, player_money, player_loan, player_hands, player_id = player_data[0], player_data[1], player_data[
+            2], \
+            player_data[3], player_data[4]
+        player_total_money = player_money - (1000 * player_loan)
+        if is_player_active_today(player_name):
+            update_daily_table(player_name, player_total_money)
+            print(f'玩家{player_name}今天玩过了,更新总金额{player_total_money}')
+        else:
+            last_hand = query_latest_hand(player_name)  # 上一次玩的最后积分数，为空则代表是新玩家
+            if not last_hand:
+                # 新玩家，daily表里没有他的数据
+                insert_daily_table(player_name, INIT_MONEY, player_total_money)
+            elif player_total_money == last_hand:
+                # 两种可能
+                # 1.大榜上的玩家，但是今天没玩，不用记录
+                # 2.今天玩了，但是这把弃牌了，先不记录，等有变化时候再记录
+                continue
+            else:
+                # 钱有变化，但是今天还没有该玩家的数据，则插入今日数据
+                insert_daily_table(player_name, last_hand, player_total_money)
+
+
+def query_latest_hand(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT latest_money FROM daily
+            WHERE username = ?
+            ORDER BY date DESC
+            LIMIT 1
+        """, (username,))
+        result = cursor.fetchone()
+        if result is not None:
+            return result[0]
+        else:
+            return None
+    except Exception as e:
+        print(f"Error querying hands table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_daily_ranking():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT username, start_money, latest_money, date FROM daily
+            WHERE date = date('now', 'localtime')
+        """)
+        result = cursor.fetchall()
+        result = [list(row) for row in result]
+        ranking_data = {}
+        for row in result:
+            player_name, start_money, latest_money = row[0], row[1], row[2]
+            profit = latest_money - start_money
+            ranking_data[player_name] = profit
+        return ranking_data
+    except Exception as e:
+        print(f"Error querying daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def reset_daily_table():
+    # 清空daily表中所有数据
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # 查询user表中所有username
+    usernames = []
+    try:
+        cursor.execute("""
+            SELECT username FROM users
+        """)
+        result = cursor.fetchall()
+        for row in result:
+            usernames.append(row[0])
+        # 清空 daily 表中所有数据
+        cursor.execute("DELETE FROM daily")
+        insert_data = [(username, INIT_MONEY, INIT_MONEY, '2024-01-01') for username in usernames]
+        cursor.executemany("""
+            INSERT INTO daily (username, start_money, latest_money, date)
+            VALUES (?, ?, ?, ?)
+        """, insert_data)
+
+        conn.commit()
+        print("已成功重置 daily 表。")
+    except Exception as e:
+        print(f"Error deleting from daily table in database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 if __name__ == '__main__':
+    # 删除表
+    # drop_tabel('daily')
+    # 新建daily表
+    # create_daily_table()
     # 重置数据库
     reset_player_in_db()
+    reset_daily_table()
     # 查询当前所有数据
-    query_all_data()
+    query_all_data('users')
+    print('=' * 50)
+    query_all_data('daily')
     # 查询当前排名
     # res = query_ranking_in_db()
     # print(res)
@@ -213,3 +414,4 @@ if __name__ == '__main__':
     # print(query_player_msg_in_db('你跟不跟吧', 'money'))
     # 更新玩家数据
     # update_player_msg_in_db('taozhen', 'money', 3000)
+    # reset_daily_table()

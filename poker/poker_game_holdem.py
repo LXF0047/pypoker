@@ -8,7 +8,7 @@ from .player import Player
 from .poker_game import PokerGame, GameFactory, GameError, EndGameException, GamePlayers, \
     GameEventDispatcher, GameSubscriber
 from .score_detector import HoldemPokerScoreDetector
-from .database import update_player_in_db, get_ranking_list, query_player_msg_in_db
+from .database import update_player_in_db, get_ranking_list, query_player_msg_in_db, update_daily_ranking, get_daily_ranking
 import logging
 
 
@@ -82,7 +82,7 @@ class HoldemPokerGameEventDispatcher(GameEventDispatcher):
         更新排行榜
         """
         self.raise_event(
-            "update-ranking-list",
+            "update-ranking-data",
             {
                 "ranking_list": ranking_list
             }
@@ -132,12 +132,12 @@ class HoldemPokerGame(PokerGame):
         for player in self._game_players.all:
             print(f'保存数据 --- {player.name} --- {player.money} --- {player.loan}')
             update_player_in_db(player.dto())
-        print(f'保存数据时all玩家数据: {[player.name for player in self._game_players.all]}')
-        print(f'保存数据时active玩家数据: {[player.name for player in self._game_players.active]}')
+        # 更新每日排行榜
+        update_daily_ranking()
 
     def update_ranking_list(self):
-        ranking_data = get_ranking_list()
-        self._event_dispatcher.update_ranking_event(ranking_data)
+        total_ranking_data = get_ranking_list()
+        self._event_dispatcher.update_ranking_event(total_ranking_data)
 
     def _reset_ready_state(self):
         for player in self._game_players.all:
