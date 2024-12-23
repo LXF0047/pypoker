@@ -396,8 +396,8 @@ if __name__ == '__main__':
     # 新建daily表
     # create_daily_table()
     # 重置数据库
-    reset_player_in_db()
-    reset_daily_table()
+    # reset_player_in_db()
+    # reset_daily_table()
     # 查询当前所有数据
     query_all_data('users')
     print('=' * 50)
