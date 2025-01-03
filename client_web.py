@@ -5,16 +5,16 @@ import uuid
 import gevent
 import redis
 from flask import Flask, render_template, redirect, session, url_for, request, flash, jsonify
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, current_user
 from flask_sockets import Sockets
 from geventwebsocket.websocket import WebSocket
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from poker.channel import ChannelError, MessageFormatError, MessageTimeout
-from poker.channel_websocket import ChannelWebSocket
-from poker.player import Player
-from poker.player_client import PlayerClientConnector
-from poker.database import get_db_connection, get_ranking_list
+from poker.channel.channel_websocket import ChannelWebSocket
+from poker.players.player import Player
+from poker.players.player_client import PlayerClientConnector
+from db_tools.database import get_db_connection, get_ranking_list
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "!!_-pyp0k3r-_!!"

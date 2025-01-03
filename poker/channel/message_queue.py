@@ -1,12 +1,9 @@
-import json
-import signal
-import time
-from typing import Optional, Any
-
-import gevent
-from redis import exceptions, Redis
-
-from .channel import Channel, MessageFormatError, MessageTimeout, ChannelError
+# _*_ coding: utf-8 _*_
+# @Time : 2025/1/3 14:43 
+# @Author : lxf 
+# @Version：V 0.1
+# @File : message_queue.py
+# @desc :
 
 
 class MessageQueue:
@@ -48,28 +45,3 @@ class MessageQueue:
             except exceptions.RedisError as ex:
                 raise ChannelError(ex.args[0])
         raise MessageTimeout("Timed out")
-
-
-class ChannelRedis(Channel):
-    """
-    connect时channel_in的输入为O队列，channel_out的输入为I队列
-    PlayerServer中传入的channel_in为I队列，channel_out为O队列
-
-    PlayerClientConnector和PlayerClient中（新连接时）：
-    recv_message是从O队列的右端弹出消息   O队列   [msg5, msg4, msg3, msg2] ---> msg1
-    send_message是从I队列的左端推入消息   I队列   msg5 ---> [msg4, msg3, msg2, msg1]
-    PlayerServer中
-    send_message是从O队列的左端推入消息   O队列   msg5 ---> [msg4, msg3, msg2, msg1]
-    recv_message是从I队列的右端弹出消息   I队列   [msg5, msg4, msg3, msg2] ---> msg1
-    """
-    def __init__(self, redis: Redis, channel_in: str, channel_out: str):
-        self._queue_in = MessageQueue(redis, channel_in)
-        self._queue_out = MessageQueue(redis, channel_out)
-
-    def send_message(self, message: Any):
-        # 左入
-        self._queue_out.push(message)
-
-    def recv_message(self, timeout_epoch: Optional[float] = None) -> Any:
-        # 右出
-        return self._queue_in.pop(timeout_epoch)

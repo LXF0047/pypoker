@@ -4,8 +4,8 @@ from typing import Generator
 from unittest import mock
 
 from poker.channel import Channel
-from poker.player_server import PlayerServer
-from poker.game_server import GameServer, ConnectedPlayer
+from poker.players.player_server import PlayerServer
+from poker.game_core.game_server import GameServer, ConnectedPlayer
 
 
 class GameServerTest(unittest.TestCase):

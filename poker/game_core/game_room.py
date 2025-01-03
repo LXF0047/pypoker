@@ -3,20 +3,9 @@ from typing import Dict, List, Optional
 
 import gevent
 
-from .player_server import PlayerServer
-from .poker_game import GameSubscriber, GameError, GameFactory
-
-
-class FullGameRoomException(Exception):
-    pass
-
-
-class DuplicateRoomPlayerException(Exception):
-    pass
-
-
-class UnknownRoomPlayerException(Exception):
-    pass
+from poker.players.player_server import PlayerServer
+from poker.texas_holdem.poker_game import GameSubscriber, GameError, GameFactory
+from poker.base.exceptions_factory import FullGameRoomException, DuplicateRoomPlayerException, UnknownRoomPlayerException
 
 
 class GameRoomPlayers:
@@ -313,18 +302,3 @@ class GameRoom(GameSubscriber):
             # 只有一个玩家时房间状态为非活动
             self._logger.info("Deactivating room {}...".format(self.id))
             self.active = False
-
-
-class GameRoomFactory:
-    """
-    游戏房间工厂类，用于创建房间实例。
-    提供了标准化的接口，根据房间大小和游戏工厂生成新房间。
-    """
-
-    def __init__(self, room_size: int, game_factory: GameFactory):
-        self._room_size: int = room_size
-        self._game_factory: GameFactory = game_factory
-
-    def create_room(self, id: str, private: bool, logger) -> GameRoom:
-        return GameRoom(id=id, private=private, game_factory=self._game_factory, room_size=self._room_size,
-                        logger=logger)

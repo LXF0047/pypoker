@@ -2,7 +2,8 @@ import logging
 import time
 from typing import Any, Optional
 
-from .channel import MessageFormatError, ChannelError, MessageTimeout, Channel
+from ..channel.channel import Channel
+from ..base.exceptions_factory import MessageFormatError, ChannelError, MessageTimeout
 from .player import Player
 
 

@@ -2,10 +2,9 @@ import json
 import signal
 import time
 from typing import Optional, Any
-
 from geventwebsocket.websocket import WebSocket
-
-from .channel import Channel, ChannelError, MessageFormatError, MessageTimeout
+from .channel import Channel
+from ..base.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
 
 
 class ChannelWebSocket(Channel):

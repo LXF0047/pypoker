@@ -1,4 +1,9 @@
-from typing import Optional, Any
+# _*_ coding: utf-8 _*_
+# @Time : 2025/1/3 14:44 
+# @Author : lxf 
+# @Version：V 0.1
+# @File : exceptions_factory.py
+# @desc :
 
 
 class ChannelError(Exception):
@@ -33,12 +38,25 @@ class MessageFormatError(Exception):
             raise MessageFormatError(attribute="message_type", expected=expected, found=message["message_type"])
 
 
-class Channel:
-    def recv_message(self, timeout_epoch: Optional[float] = None) -> Any:
-        raise NotImplementedError
+class FullGameRoomException(Exception):
+    pass
 
-    def send_message(self, message: Any):
-        raise NotImplementedError
 
-    def close(self):
-        pass
+class DuplicateRoomPlayerException(Exception):
+    pass
+
+
+class UnknownRoomPlayerException(Exception):
+    pass
+
+
+class GameError(Exception):
+    pass
+
+
+class EndGameException(Exception):
+    pass
+
+
+class EndRoundException(Exception):
+    pass

@@ -1,8 +1,6 @@
 import unittest
 
-from poker.card import Card
-from poker.player import Player
-from poker.poker_game import *
+from poker.texas_holdem.poker_game import *
 from poker.score_detector import HoldemPokerScoreDetector
 
 

@@ -5,15 +5,10 @@ from uuid import uuid4
 
 import gevent
 
-from .player_server import PlayerServer
-from .game_room import FullGameRoomException, GameRoom, GameRoomFactory
-
-
-class ConnectedPlayer:
-    """已连接玩家类"""
-    def __init__(self, player: PlayerServer, room_id: str = None):
-        self.player: PlayerServer = player
-        self.room_id: str = room_id
+from poker.players.player_server import PlayerServer
+from poker.game_core.game_room import FullGameRoomException, GameRoom
+from poker.game_core.game_room_factory import GameRoomFactory
+from poker.players.connected_player import ConnectedPlayer
 
 
 class GameServer:

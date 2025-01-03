@@ -4,8 +4,9 @@ from typing import Any, Optional
 from redis import Redis
 
 from .player import Player
-from .channel import MessageFormatError, Channel
-from .channel_redis import ChannelRedis, MessageQueue
+from ..channel.channel import Channel
+from ..channel.channel_redis import ChannelRedis, MessageQueue
+from ..base.exceptions_factory import MessageFormatError
 
 
 class PlayerClient:

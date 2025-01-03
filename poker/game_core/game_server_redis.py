@@ -1,18 +1,18 @@
 import time
 from typing import Generator
-
 from redis import Redis
-
-from .game_room import GameRoomFactory
-from .channel_redis import MessageQueue, ChannelRedis, ChannelError, MessageFormatError, MessageTimeout
-from .game_server import GameServer, ConnectedPlayer
-from .player_server import PlayerServer
+from poker.game_core.game_room_factory import GameRoomFactory
+from poker.channel.channel_redis import MessageQueue, ChannelRedis
+from poker.base.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
+from poker.game_core.game_server import GameServer, ConnectedPlayer
+from poker.players.player_server import PlayerServer
 
 
 class GameServerRedis(GameServer):
     """
 
     """
+
     def __init__(self, redis: Redis, connection_channel: str, room_factory: GameRoomFactory, logger=None):
         """
         connection_channel: "texas-holdem-poker:lobby"
