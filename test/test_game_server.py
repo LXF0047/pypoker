@@ -4,7 +4,7 @@ from typing import Generator
 from unittest import mock
 
 from poker.channel import Channel
-from poker.players.player_server import PlayerServer
+from poker.game_core.players.player_server import PlayerServer
 from poker.game_core.game_server import GameServer, ConnectedPlayer
 
 

@@ -10,10 +10,10 @@ from flask_sockets import Sockets
 from geventwebsocket.websocket import WebSocket
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from poker.channel import ChannelError, MessageFormatError, MessageTimeout
+from poker.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
 from poker.channel.channel_websocket import ChannelWebSocket
-from poker.players.player import Player
-from poker.players.player_client import PlayerClientConnector
+from poker.game_core.players.player import Player
+from poker.game_core.players.player_client import PlayerClientConnector
 from db_tools.database import get_db_connection, get_ranking_list
 
 app = Flask(__name__)

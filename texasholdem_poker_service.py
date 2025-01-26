@@ -2,9 +2,9 @@ import logging
 import redis
 import os
 
-from poker.game_core.game_server_redis import GameServerRedis
-from poker.game_core.game_room import GameRoomFactory
-from poker.poker_game_holdem import HoldemPokerGameFactory
+from poker.game_core.game_server import GameServerRedis
+from poker.game_core.room.game_room import GameRoomFactory
+from poker.game_mode.traditional.traditional_game_factory import HoldemPokerGameFactory
 
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 

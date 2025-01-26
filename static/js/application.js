@@ -526,7 +526,7 @@ PyPoker = {
         },
 
         onPlayerAction: function (message) {
-            isCurrentPlayer = message.player.id == $('#current-player').attr('data-player-id');
+            isCurrentPlayer = message.player.id === $('#current-player').attr('data-player-id');
 
             switch (message.action) {
                 case 'bet':

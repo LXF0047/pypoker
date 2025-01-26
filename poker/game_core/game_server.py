@@ -1,20 +1,23 @@
+import time
+from redis import Redis
 import logging
 import threading
 from typing import List, Generator, Dict
 from uuid import uuid4
-
 import gevent
 
-from poker.players.player_server import PlayerServer
-from poker.game_core.game_room import FullGameRoomException, GameRoom
-from poker.game_core.game_room_factory import GameRoomFactory
-from poker.players.connected_player import ConnectedPlayer
+from poker.game_core.room.game_room import FullGameRoomException, GameRoom, GameRoomFactory
+from poker.game_core.players.connected_player import ConnectedPlayer
+from poker.channel.channel_redis import MessageQueue, ChannelRedis
+from poker.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
+from poker.game_core.players.player_server import PlayerServer
 
 
 class GameServer:
     """
-
+    游戏服务器
     """
+
     def __init__(self, room_factory: GameRoomFactory, logger=None):
         self._id: str = str(uuid4())
         self._rooms: List[GameRoom] = []
@@ -90,7 +93,7 @@ class GameServer:
         self.on_start()
         try:
             # 遍历大厅中玩家， new_players是一个迭代器持续读取大厅中新加入的玩家
-            for player in self.new_players():
+            for player in self.new_players():  # player: ConnectedPlayer
                 # Player successfully connected: joining the lobby
                 self._logger.info("{}: {} connected".format(self, player.player.name))
                 try:
@@ -114,3 +117,111 @@ class GameServer:
 
     def on_shutdown(self):
         pass
+
+
+class GameServerRedis(GameServer):
+    """
+
+    """
+
+    def __init__(self, redis: Redis, connection_channel: str, room_factory: GameRoomFactory, logger=None):
+        """
+        connection_channel: "texas-holdem-poker:lobby"
+        """
+        GameServer.__init__(self, room_factory, logger)
+        self._redis: Redis = redis
+        self._connection_queue = MessageQueue(redis, connection_channel)  # 游戏大厅队列
+
+    def _connect_player(self, message) -> ConnectedPlayer:
+        """
+        从message中提取关键信息来新建PlayerServer
+        """
+        # 检测是否超时
+        try:
+            timeout_epoch = int(message["timeout_epoch"])
+        except KeyError:
+            raise MessageFormatError(attribute="timeout_epoch", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="timeout_epoch", desc="Invalid session id")
+
+        if timeout_epoch < time.time():
+            raise MessageTimeout("Connection timeout")
+
+        # 检测 session_id
+        try:
+            session_id = str(message["session_id"])
+        except KeyError:
+            raise MessageFormatError(attribute="session", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="session", desc="Invalid session id")
+
+        # 提取玩家属性
+        # player id
+        try:
+            player_id = str(message["player"]["id"])
+        except KeyError:
+            raise MessageFormatError(attribute="player.id", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="player.id", desc="Invalid player id")
+        # player name
+        try:
+            player_name = str(message["player"]["name"])
+        except KeyError:
+            raise MessageFormatError(attribute="player.name", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="player.name", desc="Invalid player name")
+        # player money
+        try:
+            player_money = float(message["player"]["money"])
+        except KeyError:
+            raise MessageFormatError(attribute="player.money", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="player.money",
+                                     desc="'{}' is not a number".format(message["player"]["money"]))
+        # player loan
+        try:
+            player_loan = float(message["player"]["loan"])
+        except KeyError:
+            raise MessageFormatError(attribute="player.loan", desc="Missing attribute")
+        except ValueError:
+            raise MessageFormatError(attribute="player.loan",
+                                     desc="'{}' is not a number".format(message["player"]["loan"]))
+        # room id
+        try:
+            game_room_id = str(message["room_id"])
+        except KeyError:
+            game_room_id = None
+        except ValueError:
+            raise MessageFormatError(attribute="room_id", desc="Invalid room id")
+
+        player = PlayerServer(
+            channel=ChannelRedis(
+                self._redis,
+                "poker5:player-{}:session-{}:I".format(player_id, session_id),
+                "poker5:player-{}:session-{}:O".format(player_id, session_id)
+            ),
+            logger=self._logger,
+            id=player_id,
+            name=player_name,
+            money=player_money,
+            loan=player_loan,
+            ready=False
+        )
+
+        # Acknowledging the connection
+        # O队列左端推入消息（在PlayerClientConnector连接时读取连接确认信息）
+        player.send_message({
+            "message_type": "connect",
+            "server_id": self._id,
+            "player": player.dto()
+        })
+
+        return ConnectedPlayer(player=player, room_id=game_room_id)
+
+    def new_players(self) -> Generator[ConnectedPlayer, None, None]:
+        while True:
+            try:
+                # 将大厅队列中的玩家依次建立连接返回ConnectedPlayer(记录了PlayerServer,room_id信息)
+                yield self._connect_player(self._connection_queue.pop())
+            except (ChannelError, MessageTimeout, MessageFormatError) as e:
+                self._logger.error("Unable to connect the player: {}".format(e.args[0]))

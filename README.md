@@ -1,51 +1,46 @@
-# PyPoker
+# 狗运牌
 
-Poker game application built for fun.
+基于 https://github.com/epifab/pypoker 项目修改的扑克游戏  
 
-It supports different poker games (currently texas holdem and traditional 5 card draw).
-The backend is entirely written in Python and it uses flask microframework to handle web requests and web sockets.
-The front-end is pure HTML/CSS/Javascript (jQuery).
+目标是基于德州扑克的游戏规则开发多样化的娱乐性单机游戏，逐步加入小丑牌、三国杀、金铲铲中的值得借鉴的玩法。  
+使用Python语言开发，使用Flask框架处理web请求与websockets内容，使用HTML/CSS/Javascript (jQuery)开发前端。    
+数据库使用Mysql8.0  
 
-### The game
+### 游戏
 
-When new players connect they automatically enter a game room.
-As soon as a game room has at least two players seated, a new game is kicked off.
+当新玩家连接时，可以新建房间（随机房间号）或输入房间号进入指定房间。  
+当游戏房间至少有两名玩家就座时，且准备就绪时，会启动新一局游戏。
 
-During a game session, other players can leave and join the table.
+在游戏过程中，其他玩家可以离开并加入桌面。
 
-A live demo of this application can be found at: https://pypoker.herokuapp.com
+#### 游戏流程
 
-![image](https://cloud.githubusercontent.com/assets/3248824/19602814/950fcbd2-97a6-11e6-9e9d-faabeac2307f.png)
+![game_flow.jpg](assets%2Fimgs%2Fgame_flow.jpg)
 
+### 架构
 
-### Architecture
-
-The application is made of four components.
-- **Game service**:
-    - Background process responsible for launching new games.
-    - There are currently two game services (texasholdem_poker_service.py and traditional_poker_service.py).
-- **Backend web application**:
-    - Handles HTTP requests and communicates to the clients via a persisted connection (web sockets).
-    - Acts as a middle layer between the game service and the frontend web application.
-- **Frontend web application**:
-    - Handles any end user interactions.
-- **Message broker**:
-    - The backend web application and the game services communicate by pushing and pulling messages to and from a queue. This is done using Redis.
+- **服务 Service**:
+    - 后台进程启动游戏的service
+- **后台**:
+    - 处理HTTP请求并通过websockets与每个玩家客户端通信
+    - 是游戏服务端与前端web应用的中间层，主要负责消息的转发
+- **前端**:
+    - 简陋的html页面，处理与玩家的交互
+- **消息代理**:
+    - 使用Redis消息队列完成后台与服务间的通信
 
 
-Note: even if they are in the same repository, the game service and the web application are completely decoupled.
-They can be deployed on different servers and scaled independently as the communication only happens by exchanging JSON messages via a distributed database.
+注：尽管它们在同一个代码库中，服务和Web应用是完全解耦的。它们可以部署在不同的服务器上，并独立扩展，因为它们之间的通信仅通过交换JSON消息在分布式数据库中进行。
 
+### 通信协议
 
-### Communication protocol
+客户端通过WebSocket在持久化HTTP连接中使用JSON格式消息与后台应用进行通信。
 
-As mentioned above, front-end clients communicate to the backend application by exchanging JSON messages over a persisted HTTP connection using web sockets.
+客户端应用的例子: static/js/application.js
 
-A working example of a client application can be found under: static/js/application.js
+每条消息都要有一个 **message_type**字段用来说明消息的类型.
 
-Every message will contain a self-explanatory field named **message_type**.
-
-There are 8 possible message types:
+8种消息类型:
 - *connect*
 - *disconnect*
 - *room-update*
@@ -55,9 +50,9 @@ There are 8 possible message types:
 - *error*
 
 
-#### Connection
+#### 玩家连接
 
-When a player connects, he receives a connection message:
+新玩家加入时会收到一条连接消息：
 
 ```
 {
@@ -67,21 +62,21 @@ When a player connects, he receives a connection message:
 }
 ```
 
-Unless catastrophic crashes, every poker session is terminated by receiving (or sending) a *disconnect* message_type.
+除非发生灾难性故障，否则每场扑克牌局都会通过接收（或发送）**disconnect** 消息来结束。
 
 ```
 {"message_type": "disconnect"}
 ```
 
 
-#### Room updates
+#### 房间更新
 
-Shortly after the connection, the player automatically lands in a poker room and starts receiving **room-update** messages describing any room related event.
+玩家进入房间后，开始接收room-update消息，描述任何房间相关的事件。  
 
-There are three possible *room-update* events:
-- **init**: this is sent straight after the player joined a game room
-- **player-added**: sent any time a new player joins the game room
-- **player-removed**: sent any time a player leaves the game room
+三种 *room-update* 事件:
+- **init**: 在玩家加入游戏房间后立即发送
+- **player-added**: 有新玩家加入游戏房间时发送
+- **player-removed**: 有玩家离开游戏房间时发送
 
 ```
 {
@@ -148,35 +143,35 @@ There are three possible *room-update* events:
 ```
 
 
-#### Game updates
+#### 牌局更新
 
-Once there are at least two players in the room a new game is automatically launched. 
-At this point, the remote server starts broadcasting **game-update** messages to communicate every game related event to the frontend clients (for instance "player X bet 100 dollars", "player Y changed 3 cards", "player Z won", ...).
+游戏开始时，服务器会开始广播**game-update**消息，将所有牌局相关的事件（例如“玩家X下注100”，“玩家Y弃牌”，“玩家Z获胜”等）发送给客户端。
 
-Frontend clients will respond to particular messages which indicate that input is required from the end users (for instance a bet or which cards they wish the change).
+客户端将响应特定的消息，这些消息表明需要用户输入（例如下注或选择他们希望更换的牌）。  
 
-*game-update* messages structure depend on the specific event that generate them.
+*game-update* 的消息的结构取决具体事件
 
-Here's a list of possible events:
+一些事件:
 
-- **new-game** (a new game starts)
-- **game-over** (current game was terminated)
-- **cards-assignment** (cards assigned to each player)
-- **player-action** (player action is required)
-- **cards-change** (a player changed some cards - only for traditional poker games)
-- **bet** (a player check, call or raise)
-- **fold** (a player fold)
-- **dead-player** (a player left the table)
-- **showdown** (active players showdown their cards)
-- **pots-update** (when money go to the pots)
-- **winner-designation** (winner designation for each pot)
+- **new-game** (新牌局开始)
+- **game-over** (当前牌局结束)
+- **cards-assignment** (为玩家发牌)
+- **player-action** (需要玩家操作)
+- **cards-change** (玩家换牌（当前用不上）)
+- **bet** (玩家下注信息)
+- **fold** (玩家弃牌)
+- **dead-player** (玩家下桌)
+- **showdown** (活跃玩家摊牌)
+- **pots-update** (更新底池)
+- **winner-designation** (为每个底池分配赢家)
 
-The client communicate player decisions via two message types:
+客户端发送的消息类型包括以下两种:
 
-- **cards-change** (containing the list of cards the player wish to change - only for traditional poker games)
-- **bet** (the actual bet)
+- **cards-change** (换牌（娱乐玩法）)
+- **bet** (下注信息)
 
-In the following example a player named "Jack" changes 4 cards (first, third, fourth and fifth cards in his hand):
+在下面的例子中  
+1.换牌（他的手牌中的第一、第三、第四和第五张）：
 
 ```
 { 
@@ -185,7 +180,7 @@ In the following example a player named "Jack" changes 4 cards (first, third, fo
 }
 ```
 
-Being incredibly lucky, Jack gets back a crazy score from the server (4 of a kind!):
+2.发牌
 
 ```
 { 
@@ -198,7 +193,7 @@ Being incredibly lucky, Jack gets back a crazy score from the server (4 of a kin
 }
 ```
 
-At this point, the server sends a first *game-update* message to notify that Jack changed 4 cards:
+3.同时通知其他玩家换牌消息
 
 ```
 { 
@@ -213,7 +208,7 @@ At this point, the server sends a first *game-update* message to notify that Jac
 }
 ```
 
-And shortly after a second *game-update* message to notify it's "Jack" turn to bet:
+4.服务器通知"Jack"该下注:
 
 ```
 { 
@@ -232,7 +227,7 @@ And shortly after a second *game-update* message to notify it's "Jack" turn to b
 }
 ```
 
-At this point Jack goes all in:
+5.allin 
 
 ```
 { 
@@ -241,5 +236,4 @@ At this point Jack goes all in:
 }
 ```
 
-The server broadcasts 2 new messages to notify that Jack raised to $50.0 and that it's now Jeff's turn to bet, who wisely decides to fold...
-
+6.服务器广播了两条新消息，通知Jack将筹码加到50.0美元

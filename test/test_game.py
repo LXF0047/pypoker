@@ -1,6 +1,5 @@
 import unittest
 
-from poker.texas_holdem.poker_game import *
 from poker.score_detector import HoldemPokerScoreDetector
 
 

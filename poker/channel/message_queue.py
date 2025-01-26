@@ -4,12 +4,20 @@
 # @Version：V 0.1
 # @File : message_queue.py
 # @desc :
+import json
+import time
+from typing import Optional, Any
+from redis import exceptions, Redis
+
+import gevent
+from poker.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
 
 
 class MessageQueue:
     """
     基于 Redis 列表实现的消息队列。
     """
+
     def __init__(self, redis: Redis, queue_name: str, expire: int = 300):
         self._redis: Redis = redis
         self._queue_name: str = queue_name

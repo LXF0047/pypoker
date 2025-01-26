@@ -4,7 +4,7 @@ import time
 from typing import Optional, Any
 from geventwebsocket.websocket import WebSocket
 from .channel import Channel
-from ..base.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
+from poker.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
 
 
 class ChannelWebSocket(Channel):
