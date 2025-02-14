@@ -11,6 +11,7 @@ from poker.game_core.players.connected_player import ConnectedPlayer
 from poker.channel.channel_redis import MessageQueue, ChannelRedis
 from poker.exceptions_factory import ChannelError, MessageFormatError, MessageTimeout
 from poker.game_core.players.player_server import PlayerServer
+from poker.game_core.game.game_factory import GameFactory
 
 
 class GameServer:
@@ -84,6 +85,15 @@ class GameServer:
         else:
             self._logger.info("Player {}: joining private room {}".format(player.player.name, player.room_id))
             return self._join_private_room(player.player, player.room_id)
+
+    def switch_game_mode(self, room_id: str, new_game_factory: GameFactory):
+        """
+        在服务器中切换房间的游戏模式。
+        :param room_id: 房间ID
+        :param new_game_factory: 新的游戏工厂（游戏模式）
+        """
+        room = self.__get_room(room_id)  # 获取指定的房间
+        room.switch_game_mode(new_game_factory)  # 调用房间的方法切换游戏模式
 
     def start(self):
         """
@@ -170,22 +180,6 @@ class GameServerRedis(GameServer):
             raise MessageFormatError(attribute="player.name", desc="Missing attribute")
         except ValueError:
             raise MessageFormatError(attribute="player.name", desc="Invalid player name")
-        # player money
-        try:
-            player_money = float(message["player"]["money"])
-        except KeyError:
-            raise MessageFormatError(attribute="player.money", desc="Missing attribute")
-        except ValueError:
-            raise MessageFormatError(attribute="player.money",
-                                     desc="'{}' is not a number".format(message["player"]["money"]))
-        # player loan
-        try:
-            player_loan = float(message["player"]["loan"])
-        except KeyError:
-            raise MessageFormatError(attribute="player.loan", desc="Missing attribute")
-        except ValueError:
-            raise MessageFormatError(attribute="player.loan",
-                                     desc="'{}' is not a number".format(message["player"]["loan"]))
         # room id
         try:
             game_room_id = str(message["room_id"])
@@ -193,6 +187,13 @@ class GameServerRedis(GameServer):
             game_room_id = None
         except ValueError:
             raise MessageFormatError(attribute="room_id", desc="Invalid room id")
+        # room owner
+        # try:
+        #     room_owner = eval(message["room_owner"])
+        # except KeyError:
+        #     room_owner = False
+        # except ValueError:
+        #     raise MessageFormatError(attribute="room_owner", desc="Invalid room owner")
 
         player = PlayerServer(
             channel=ChannelRedis(
@@ -203,8 +204,7 @@ class GameServerRedis(GameServer):
             logger=self._logger,
             id=player_id,
             name=player_name,
-            money=player_money,
-            loan=player_loan,
+            money=0,
             ready=False
         )
 

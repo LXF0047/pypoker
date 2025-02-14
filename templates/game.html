@@ -10,10 +10,32 @@
                 </div>
             </div>
         </div>
-
         <div id="current-player-wrapper" class="col-sm-4">
             <h4>Room id {{ room }}</h4>
-            <h4>Hi {{ username }}!</h4>
+            <h4>Hi {{ nickname }}!</h4>
+{#            {% if is_owner %}#}
+            <!-- 房主可以选择游戏模式 -->
+            <div id="game-mode-selection" class="form-group">
+                <label for="game-mode">选择游戏模式:</label>
+                <select id="game-mode" class="form-control">
+                    <!-- 游戏模式选项将由JS动态填充 -->
+                </select>
+            </div>
+{#            {% else %}#}
+            <!-- 其他人只能查看当前游戏模式 -->
+            <div id="game-mode-selection" class="form-group">
+                <label>游戏模式:</label>
+                <span id="selected-game-mode">{{ game_mode }}</span>
+            </div>
+{#            {% endif %}#}
+
+            <!-- 显示模式简介的区域 -->
+            <div id="game-mode-description" class="form-group">
+                <label for="game-mode-description">模式简介:</label>
+                <p id="mode-description-text"></p> <!-- 将显示描述文本 -->
+            </div>
+
+            <!-- 准备按钮 -->
             <div id="ready-status">
                 <input type="button" id="ready-btn" class="btn btn-info" value="Ready"/>
                 <span id="status-indicator"

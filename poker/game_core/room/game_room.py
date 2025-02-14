@@ -7,6 +7,7 @@ from poker.game_core.players.player_server import PlayerServer
 from poker.game_core.game.game_factory import GameFactory
 from poker.exceptions_factory import FullGameRoomException, DuplicateRoomPlayerException, \
     UnknownRoomPlayerException, GameError
+from db_tools.db_factory import GameDBTools
 
 
 class GameSubscriber:
@@ -22,6 +23,7 @@ class GameRoomPlayers:
         self._seats: List[Optional[str]] = [None] * room_size  # 初始化房间座位
         self._players: Dict[str, PlayerServer] = {}  # 玩家id和PlayerServer映射
         self._lock = threading.Lock()
+        self.owner: Optional[str] = None  # 房主初始化为 None
 
     @property
     def players(self) -> List[PlayerServer]:
@@ -169,12 +171,31 @@ class GameRoom(GameSubscriber):
         self.id = id
         self.private = private
         self.active = False
+        self.game_active = False  # 一轮游戏是否正在进行
         self._game_factory = game_factory
         self._room_players = GameRoomPlayers(room_size)  # 管理玩家
         self._room_event_handler = GameRoomEventHandler(self._room_players, self.id, logger)  # 管理房间
         self._event_messages = []
         self._logger = logger
         self._lock = threading.Lock()
+        self._game_mode = "1"  # 游戏模式, 默认为1
+        self._game_db_tool = GameDBTools()
+        self._all_game_modes = self._game_db_tool.fetch_all_game_modes()  # 数据库查询所有游戏模式
+
+    def switch_game_mode(self, new_game_factory: GameFactory):
+        """
+        切换游戏模式，更新房间内的游戏工厂。
+        :param new_game_factory: 新的游戏工厂
+        """
+        self._lock.acquire()
+        try:
+            if self.game_active:
+                self._logger.info("Room {}: Game mode change is not allowed during an active game.".format(self.id))
+                return  # 不允许在游戏进行时切换
+            self._game_factory = new_game_factory
+            self._logger.info("Room {}: switched to new game mode.".format(self.id))
+        finally:
+            self._lock.release()
 
     def join(self, player: PlayerServer):
         self._lock.acquire()
@@ -182,6 +203,10 @@ class GameRoom(GameSubscriber):
             try:
                 self._room_players.add_player(player)  # 在GameRoomPlayer中添加玩家
                 self._room_event_handler.room_event("player-added", player.id)  # 将player-added事件广播给房间内所有玩家
+                # 设置房主
+                if self._room_players.owner is None:
+                    self._room_players.owner = player.id  # 第一个加入的玩家为房主
+                    self.__game_mode_assignment(self._room_players.owner)  # 广播给其他玩家
             except DuplicateRoomPlayerException:
                 old_player = self._room_players.get_player(player.id)
                 old_player.update_channel(player)
@@ -212,6 +237,35 @@ class GameRoom(GameSubscriber):
         player.disconnect()
         self._room_players.remove_player(player.id)  # 使用管理玩家类GameRoomPlayers中移除
         self._room_event_handler.room_event("player-removed", player.id)  # 广播player-removed事件
+
+        # 如果房主离开，指定新的房主
+        if self._room_players.owner == player.id:
+            self._assign_new_owner()
+
+    def __game_mode_assignment(self, owner_id):
+        # 查询游戏模式信息
+        self._room_event_handler.broadcast(
+            {
+                "message_type": "room-update",
+                "event": "room-owner-assigned",
+                "game_modes": self._all_game_modes,
+                "current_game_mode": self._game_mode,
+                "owner_id": owner_id,
+                "players": {player.id: player.dto() for player in self._room_players.players},
+                "player_ids": self._room_players.seats,
+            }
+        )
+
+    def _assign_new_owner(self):
+        """指定新的房主，选取顺序上下一位在线玩家作为房主"""
+        # 获取当前房间内的所有在线玩家
+        players = [player for player in self._room_players.players if player.id != self._room_players.owner]
+        if players:
+            # 按顺序选择下一位玩家
+            new_owner = players[0].id
+            self._room_players.owner = new_owner
+            # self._room_event_handler.room_event("room-owner-assigned", new_owner)
+            self.__game_mode_assignment(new_owner)
 
     def game_event(self, event: str, event_data: dict):
         """
@@ -283,6 +337,10 @@ class GameRoom(GameSubscriber):
             dealer_key = -1
             while True:
                 try:
+                    # 检查是否有新的游戏模式
+                    self._lock.acquire()  # 确保在检查和使用游戏工厂时不会被干扰
+                    current_game_factory = self._game_factory  # 获取当前的游戏工厂
+                    self._lock.release()
                     # 踢出掉线玩家
                     self.remove_inactive_players()
                     # 更新准备状态
@@ -295,18 +353,19 @@ class GameRoom(GameSubscriber):
                     if len(players) < 2:
                         raise GameError("At least two players needed to start a new game")
 
+                    self.game_active = True  # 一轮游戏开始
                     dealer_key = (dealer_key + 1) % len(players)  # 更新庄家位置
-                    game = self._game_factory.create_game(players)  # game: HoldemPokerGame TODO 后期改完在准备阶段可以修改不同游戏模式
+                    game = current_game_factory.create_game(players)  # 使用指定游戏模式开始游戏
                     game.event_dispatcher.subscribe(self)  # 添加订阅者，传入GameRoom对象
                     game.play_hand(players[dealer_key].id)  # 开始游戏
                     game.save_player_data()  # 保存玩家数据
                     game.update_ranking_list()  # 更新排行榜
                     game.event_dispatcher.unsubscribe(self)  # 取消订阅
+                    self.game_active = False  # 一轮游戏结束
 
                 except GameError:
                     break
         finally:
-            # 只有一个玩家时房间状态为非活动
             self._logger.info("Deactivating room {}...".format(self.id))
             self.active = False
 

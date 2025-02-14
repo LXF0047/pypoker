@@ -55,6 +55,16 @@ class PlayerServer(Player):
                 self._ready = True
         except (ChannelError, MessageTimeout, MessageFormatError) as e:
             self._logger.error("Unable to update ready state for {}: {}".format(self, e))
+        # try:
+        #     message = self.recv_message(timeout_epoch=time.time() + 2)
+        #     MessageFormatError.validate_message_type(message, expected="ready-state-change")
+        #     if message["ready"]:
+        #         self._ready = message["ready"]
+        # except MessageTimeout as e:
+        #     # 持续接前端发来的消息
+        #     pass
+        # except (ChannelError, MessageFormatError) as e:
+        #     self._logger.error("Unable to update ready state for {}: {}".format(self, e))
 
     def try_send_message(self, message: Any) -> bool:
         try:

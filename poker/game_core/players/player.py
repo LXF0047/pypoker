@@ -1,9 +1,10 @@
 class Player:
-    def __init__(self, id: str, name: str, money: float, loan: int, ready: bool):
+    def __init__(self, id: str, name: str, money: float, ready: bool):
         self._id: str = id
         self._name: str = name
         self._money: float = money
-        self._loan: int = loan
+        # self._loan: int = loan
+        # self._room_owner: bool = False
         self._ready: bool = ready
 
     @property
@@ -18,9 +19,13 @@ class Player:
     def money(self) -> float:
         return self._money
 
-    @property
-    def loan(self) -> int:
-        return self._loan
+    # @property
+    # def loan(self) -> int:
+    #     return self._loan
+
+    # @property
+    # def room_owner(self) -> bool:
+    #     return self._room_owner
 
     @property
     def ready(self) -> bool:
@@ -30,8 +35,9 @@ class Player:
         return {
             "id": self.id,
             "name": self.name,
+            # "room_owner": self.room_owner,
             "money": self.money,
-            "loan": self.loan,
+            # "loan": self.loan,
         }
 
     def take_money(self, money: float):
@@ -54,7 +60,7 @@ class Player:
         self._loan -= times
 
     def add_loan(self):
-        self.add_money(1000)
+        self.add_money(3000)
         self._loan += 1
 
     def __str__(self):

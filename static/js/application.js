@@ -121,8 +121,9 @@ PyPoker = {
 
         gameOver: function (message) {
             //ready-btn改为Ready，指示器改为红色
-            $('#ready-btn').val('Ready');
-            $('#status-indicator').css('background-color', 'red');
+            // $('#ready-btn').val('Ready');
+            // $('#status-indicator').css('background-color', 'red');
+            PyPoker.Player.resetReadyState();
         },
 
         updatePlayer: function (player) {
@@ -295,7 +296,7 @@ PyPoker = {
 
             // 遍历 message 数据，填充表格行
             message.forEach((player, index) => {
-                const [playerName, totalMoney, avgProfit, dailyProfit] = player;
+                const [playerName, totalMoney, avgProfit] = player;
 
                 // 创建表格行
                 const row = document.createElement('tr');
@@ -306,7 +307,6 @@ PyPoker = {
                     <td>${playerName}</td> <!-- 玩家姓名 -->
                     <td>$${totalMoney}</td> <!-- 总金额 -->
                     <td>${avgProfit.toFixed(2)}</td> <!-- 平均收益 -->
-                    <td>${dailyProfit.toFixed(2)}</td> <!-- mei日 -->
                 `;
 
                 // 添加行到表格
@@ -572,7 +572,7 @@ PyPoker = {
             $("html, body").animate({scrollTop: $(document).height()}, "slow");
         },
 
-        toggleReadyStatus: function () {
+                toggleReadyStatus: function () {
             // 获取按钮和状态指示器元素
             const readyBtn = $('#ready-btn');
             const statusIndicator = $('#status-indicator');
@@ -602,6 +602,42 @@ PyPoker = {
             // 将消息发送到后台
             PyPoker.socket.send(JSON.stringify(readyStateMessage));
         },
+
+        // resetReadyState: function () {
+        //     // 获取按钮和状态指示器元素
+        //     const readyBtn = $('#ready-btn');
+        //     const statusIndicator = $('#status-indicator');
+        //     // 重置按钮的值和状态指示器的颜色
+        //     readyBtn.val('Ready'); // 按钮显示 "Ready"
+        //     statusIndicator.css('background-color', 'red'); // 指示器变为红色
+        // },
+        //
+        // onChangeReadyState: function () {
+        //     // 获取按钮和状态指示器元素
+        //     const readyBtn = $('#ready-btn');
+        //     const statusIndicator = $('#status-indicator');
+        //
+        //     // 切换按钮的值和状态指示器的颜色
+        //     const isReady = readyBtn.val() === 'Ready';
+        //     if (isReady) {
+        //         readyBtn.val('Cancel'); // 按钮显示 "Cancel"
+        //         statusIndicator.css('background-color', 'green'); // 指示器变为绿色
+        //     } else {
+        //         readyBtn.val('Ready'); // 按钮显示 "Ready"
+        //         statusIndicator.css('background-color', 'red'); // 指示器变为红色
+        //     }
+        //
+        //     // 构造消息并发送到后台
+        //     const readyStateMessage = {
+        //         message_type: 'ready-state-change',
+        //         player_id: $('#current-player').attr('data-player-id'),
+        //         ready: !isReady // 反转当前状态
+        //     };
+        //
+        //     // 将消息发送到后台
+        //     PyPoker.socket.send(JSON.stringify(readyStateMessage));
+        // },
+
     },
 
     Room: {
@@ -698,8 +734,49 @@ PyPoker = {
                         }
                     });
                     break;
+
+                case 'room-owner-assigned':
+                    PyPoker.Room.handleRoomOwnerAssigned(message);
+
+                    break;
             }
         },
+
+        handleRoomOwnerAssigned: function (message) {
+            // 检查当前玩家是否是房主
+            const isOwner = message.owner_id === PyPoker.Game.getCurrentPlayerId();
+
+            // 根据房主状态显示或隐藏游戏模式选择框
+            if (isOwner) {
+                $('#game-mode-selection').show();
+            } else {
+                // 显示当前的游戏模式
+                const currentGameMode = message.current_game_mode;  // 当前的游戏模式
+                $('#selected-game-mode').text(currentGameMode);  // 更新为当前游戏模式
+            }
+
+            // 动态填充游戏模式的下拉框
+            const gameModes = message.game_modes;  // 所有游戏模式
+            const gameModeSelect = $('#game-mode');
+            gameModeSelect.empty();  // 清空现有选项
+
+            gameModes.forEach(function (mode) {
+                const option = $('<option></option>')
+                    .attr('value', mode.mode_id)  // 设置modeId为选项值
+                    .text(mode.mode_name);  // 设置显示文本为modeName
+                gameModeSelect.append(option);  // 添加选项到下拉框
+            });
+
+            // 如果是房主，允许选择模式
+            gameModeSelect.change(function () {
+                const selectedModeId = $(this).val();
+                // 将选择的模式发送到后台
+                PyPoker.socket.send(JSON.stringify({
+                    message_type: 'game-mode-change',
+                    modeId: selectedModeId
+                }));
+            });
+        }
     },
 
     init: function () {
@@ -753,6 +830,7 @@ PyPoker = {
         // 准备按钮
         $('#ready-btn').click(function () {
             PyPoker.Player.toggleReadyStatus();
+            // PyPoker.Player.onChangeReadyState();
         });
 
         $('#cards-change-cmd').click(function () {

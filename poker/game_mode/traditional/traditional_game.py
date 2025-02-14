@@ -8,6 +8,7 @@ import gevent
 from poker.game_core.game.poker_game import PokerGame
 from poker.exceptions_factory import GameError, EndGameException
 from db_tools.database import update_player_in_db, get_ranking_list, query_player_msg_in_db, update_daily_ranking
+from db_tools.db_factory import GameDBTools, PlayerDBTools
 import logging
 
 
@@ -26,6 +27,9 @@ class HoldemPokerGame(PokerGame):
         PokerGame.__init__(self, *args, **kwargs)
         self._big_blind = big_blind
         self._small_blind = small_blind
+        self.game_db_tool = GameDBTools()
+        self.player_db_tool = PlayerDBTools()
+        self._game_mode = "1"
         self._logger = logging.getLogger()
 
     def __check_no_money_players(self):
@@ -38,27 +42,37 @@ class HoldemPokerGame(PokerGame):
                 print(f'玩家{player.name}输没了，自动贷款1000')
                 player.add_loan()
 
-    def __loan_refunding(self):
-        # 自动归还超过部分
-        for player in self._game_players.all:
-            loan_times = query_player_msg_in_db(player.name, 'loan')  # 贷款次数
-            if loan_times > 0:
-                current_money = query_player_msg_in_db(player.name, 'money')  # 当前积分
-                refund_times = (current_money - 1000) // 1000 if current_money > 1000 else 0  # 超过1000部分如果超过1000的整数倍就归还
-                if refund_times > 0:
-                    player.refund_money(min(refund_times, loan_times))  # 赢的太多只还贷的部分
-                    print(f'玩家{player.name}归还贷款{refund_times}次')
+    # def __loan_refunding(self):
+    #     # 自动归还超过部分
+    #     for player in self._game_players.all:
+    #         loan_times = query_player_msg_in_db(player.name, 'loan')  # 贷款次数
+    #         if loan_times > 0:
+    #             current_money = query_player_msg_in_db(player.name, 'money')  # 当前积分
+    #             refund_times = (current_money - 1000) // 1000 if current_money > 1000 else 0  # 超过1000部分如果超过1000的整数倍就归还
+    #             if refund_times > 0:
+    #                 player.refund_money(min(refund_times, loan_times))  # 赢的太多只还贷的部分
+    #                 print(f'玩家{player.name}归还贷款{refund_times}次')
 
     def _save_player_data(self):
         # 将玩家数据保存到数据库
         for player in self._game_players.all:
-            print(f'保存数据 --- {player.name} --- {player.money} --- {player.loan}')
-            update_player_in_db(player.dto())
+            # 查上次积分
+            player_last_points = self.player_db_tool.fetch_player_points(player.id, self._game_mode)
+            # 算赢了多少个大盲注
+            self.player_db_tool.update_player_points(player.id, self._game_mode, player.money,
+                                                     (player.money - player_last_points) / self._big_blind)
+            # update_player_in_db(player.dto())
         # 更新每日排行榜
-        update_daily_ranking()
+        # update_daily_ranking()
 
     def update_ranking_list(self):
-        total_ranking_data = get_ranking_list()
+        # 更新页面排行榜
+        ranking_data = []
+        total_ranking_data = self.game_db_tool.get_total_ranking_list()
+        for player_data in total_ranking_data:
+            ranking_data.append((player_data['nickname'], player_data['points'],
+                                 round(player_data['bb_per_100hands'] / player_data['total_games'], 2)
+                                 ))
         self._event_dispatcher.update_ranking_event(total_ranking_data)
 
     def _reset_ready_state(self):
@@ -121,7 +135,7 @@ class HoldemPokerGame(PokerGame):
         保存游戏数据，包括玩家数据、游戏状态等。
         """
         self.__check_no_money_players()  # 检查是否有玩家没钱了
-        self.__loan_refunding()  # 自动归还贷款
+        # self.__loan_refunding()  # 自动归还贷款
         self._save_player_data()  # 保存用户数据
 
     def play_hand(self, dealer_id):

@@ -2,3 +2,4 @@ Flask==1.1.2
 Flask-Sockets==0.2.1
 gunicorn==20.0.4
 redis==3.5.3
+mysql-connector-python==9.2.0

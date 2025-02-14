@@ -15,6 +15,9 @@ from poker.channel.channel_websocket import ChannelWebSocket
 from poker.game_core.players.player import Player
 from poker.game_core.players.player_client import PlayerClientConnector
 from db_tools.database import get_db_connection, get_ranking_list
+from poker.game_core.game.game_mode import create_game_factory_from_mode
+from db_tools.db_factory import PlayerDBTools, GameDBTools
+from poker.game_core.game_server import GameServerRedis
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "!!_-pyp0k3r-_!!"
@@ -32,29 +35,29 @@ redis = redis.from_url(redis_url)
 
 INVITE_CODE = "asd"
 
+player_db_tool = PlayerDBTools()
+game_db_tool = GameDBTools()
+
 
 # sudo lsof -ti:5000 | xargs sudo kill -9
 
 
 class User(UserMixin):
-    def __init__(self, id, username, password, email, money, loan):
+    def __init__(self, id, username, nickname, password, email):
         self.id = id
         self.username = username
+        self.nickname = nickname
         self.password = password
         self.email = email
-        self.money = money
-        self.loan = loan
 
 
 @login_manager.user_loader
 def load_user(user_id):
     # 根据用户ID从数据库加载用户
-    conn = get_db_connection()
-    user_data = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    conn.close()
+    user_data = player_db_tool.get_player_by_id(user_id)
     if user_data:
-        return User(user_data["id"], user_data["username"], user_data["password"],
-                    user_data["email"], user_data["money"], user_data["loan"])
+        return User(user_data["user_id"], user_data["username"], user_data["nickname"],
+                    user_data["password_hash"], user_data["email"])
     return None
 
 
@@ -70,32 +73,25 @@ def index():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        email = request.form["email"]
-        invite = request.form["invite"]
+        username = request.form["username"].strip()
+        nickname = request.form["nickname"].strip()
+        password = request.form["password"].strip()
+        email = request.form["username"].strip()
+        invite = request.form["invite"].strip()
 
         if invite != INVITE_CODE:
-            flash("Invalid invite code. Please try again.")
             return redirect(url_for("register"))
 
         # 检查用户名是否已存在
-        conn = get_db_connection()
-        existing_user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        existing_user = player_db_tool.get_player_by_username(username)
 
         if existing_user:
-            conn.close()
-            flash("Username already exists. Please choose another one.")
             return redirect(url_for("register"))
 
         # 加密密码并存储到数据库
         hashed_password = generate_password_hash(password)
-        conn.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)",
-                     (username, hashed_password, email))
-        conn.commit()
-        conn.close()
+        player_db_tool.new_player_registration(username, nickname, hashed_password, email)
 
-        flash("Registration successful! Please log in.")
         return redirect(url_for("login"))
 
     return render_template("register.html")
@@ -104,30 +100,23 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
 
-        # 从数据库获取用户信息
-        conn = get_db_connection()
-        user_data = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        conn.close()
+        # 从数据库获取用户基础信息
+        player_data = player_db_tool.get_player_by_username(username)
+        player_data = player_data[0] if player_data else None
 
-        if user_data and check_password_hash(user_data["password"], password):
-            user = User(user_data["id"], user_data["username"], user_data["password"],
-                        user_data["email"], user_data["money"], user_data["loan"])
+        if player_data and check_password_hash(player_data["password_hash"], password):
+            user = User(player_data["user_id"], player_data["username"], player_data['nickname'],
+                        player_data["password_hash"],
+                        player_data["email"])
             login_user(user)
             return redirect(url_for("join"))
 
-        flash("Invalid username or password. Please try again.")
         return redirect(url_for("login"))
 
     return render_template("login.html")
-
-
-@app.route('/api/get-ranking', methods=['GET'])
-def get_ranking():
-    ranking_data = get_ranking_list()
-    return jsonify(ranking_data)  # 返回 JSON 格式
 
 
 @app.route("/join", methods=["GET", "POST"])
@@ -135,47 +124,50 @@ def get_ranking():
 def join():
     if request.method == "POST":
         action = request.form.get("action")
+        # 加入房间
         if action == "join":
             room_id = request.form.get("room-id").strip()
             if not room_id:
                 return redirect(url_for("join"))
+            # 检查房间是否存在
 
             # 玩家信息从数据库读取后保存在session中
             session["room-id"] = room_id
             session["player-id"] = current_user.id
-            session["player-name"] = current_user.username
-            session["player-money"] = current_user.money
-            session['player-loan'] = current_user.loan
+            session["player-nickname"] = current_user.nickname
 
             return render_template("index.html",
                                    player_id=session["player-id"],
-                                   username=session["player-name"],
-                                   money=session["player-money"],
-                                   loan=session['player-loan'],
+                                   nickname=session["player-nickname"],
                                    room=session["room-id"],
                                    template="game.html")
-
+        # 创建房间
         elif action == "create":
             room_id = random.randint(1000, 9999)
             session["room-id"] = room_id
             session["player-id"] = current_user.id
-            session["player-name"] = current_user.username
-            session["player-money"] = current_user.money
-            session['player-loan'] = current_user.loan
+            session["player-nickname"] = current_user.username
 
             return render_template("index.html",
                                    player_id=session["player-id"],
-                                   username=session["player-name"],
-                                   money=session["player-money"],
-                                   loan=session['player-loan'],
+                                   nickname=session["player-nickname"],
                                    room=session["room-id"],
                                    template="game.html")
 
         else:
-            flash("What did you do???")
             return redirect(url_for("join"))
 
     return render_template("join.html")
+
+
+@app.route('/api/get-ranking', methods=['GET'])
+def get_ranking():
+    ranking_data = []
+    ranking_res = game_db_tool.get_total_ranking_list()
+    for player_data in ranking_res:
+        ranking_data.append((player_data['nickname'], player_data['points'],
+                             round(player_data['bb_per_100hands'] / player_data['total_games'], 2)))
+    return jsonify(ranking_data)  # 返回 JSON 格式
 
 
 @sockets.route("/poker/texas-holdem")
@@ -201,7 +193,7 @@ def poker_game(ws: WebSocket, connection_channel: str):
 
     # 登录时数据库读取后存入session中
     player_id = session["player-id"]
-    player_name = session["player-name"]
+    player_name = session["player-nickname"]
     player_money = session["player-money"]
     player_loan = session["player-loan"]
     room_id = session["room-id"]
@@ -215,7 +207,6 @@ def poker_game(ws: WebSocket, connection_channel: str):
                 id=player_id,
                 name=player_name,
                 money=player_money,
-                loan=player_loan,
                 ready=False,
             ),
             session_id=session_id,
