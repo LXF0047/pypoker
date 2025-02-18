@@ -532,20 +532,27 @@ class GameBetRounder:
         performs a complete bet round
         returns the player who last raised - if nobody raised, then the first one to check
         """
-        players_round = list(self._game_players.round(dealer_id))  # 'e', 'a', 'b', 'c', 'd'
+        players_round = list(self._game_players.round(dealer_id))
 
         if len(players_round) == 0:
             raise GameError("No active players in this game")
 
         # The starting_player might be inactive. Moving to the first active player
-        # 非盲注轮从小盲开始，盲注轮从大盲+1开始
-        starting_player = players_round[0] if blind_bet else players_round[-2]
+        if len(players_round) == 2:
+            # 两个人的时候，第一个人是小盲，第二个人是大盲也是庄家，所以按顺序就又轮到小盲位下注了
+            starting_player = players_round[0]
+        else:
+            # 两人以上对局时，盲注轮就从大盲下一位开始下注，非盲注轮从小盲开始
+            starting_player = players_round[2] if blind_bet else players_round[0]
+
+        # 盲注轮第一位和第二位的大小盲注都已完成下注，比较当前玩家金额比上家大的时候就不需要比较大盲下一位和大盲，所以跳过大小盲和大盲+1位
+        offset = 2 if blind_bet else 0
 
         for k, player in enumerate(players_round):
             if player.id not in bets:
                 bets[player.id] = 0
             # 检查当前下注是否比上家下注小
-            if bets[player.id] < 0 or (k > 0 and bets[player.id] < bets[players_round[k - 1].id]):
+            if bets[player.id] < 0 or (k > offset and bets[player.id] < bets[players_round[k - 1].id]):
                 # Ensuring the bets dictionary makes sense
                 raise ValueError("Invalid bets dictionary")
 
