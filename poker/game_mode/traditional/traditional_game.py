@@ -93,16 +93,16 @@ class HoldemPokerGame(PokerGame):
 
     def _collect_blinds(self, dealer_id):
         # 检查是否有足够的钱来支付盲注
-        # self.__check_no_money_players()
+        self.__check_no_money_players()
 
         if self._game_players.count_active() < 2:
             raise GameError("Not enough players")
 
-        active_players = list(self._game_players.round(dealer_id))  # [e,a,b,c,d]
+        active_players = list(self._game_players.round(dealer_id))
 
         bets = {}
 
-        sb_player = active_players[-2]
+        sb_player = active_players[0]
         sb_player.take_money(self._small_blind)
         bets[sb_player.id] = self._small_blind
 
@@ -113,7 +113,7 @@ class HoldemPokerGame(PokerGame):
             bets=bets
         )
 
-        bb_player = active_players[-1]
+        bb_player = active_players[1]
         bb_player.take_money(self._big_blind)
         bets[bb_player.id] = self._big_blind
 
@@ -189,7 +189,7 @@ class HoldemPokerGame(PokerGame):
 
         try:
             # Collecting small and big blinds
-            blind_bets = self._collect_blinds(dealer_id)
+            blind_bets = self._collect_blinds(dealer_id)  # {'c': 5, 'd': 10}
 
             # Initializing a bet rounder
             bet_rounds = bet_rounder(dealer_id, pots, scores, blind_bets)
