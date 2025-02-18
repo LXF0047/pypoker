@@ -62,10 +62,11 @@ class GamePlayers:
 
     def round(self, dealer_id: str, reverse=False) -> Generator[Player, None, None]:
         """
-        a,b,c,d,e 如果dealer_id是b，那么迭代器返回的结果为e,a,b,c,d
+        a,b,c,d,e 如果dealer_id是b，那么迭代器返回的结果为c, d, e, a, b
+        列表第一位是小盲第二位是大盲最后一位是庄家
         """
         # 按顺序遍历未弃牌玩家
-        start_item = self._player_ids.index(dealer_id) + 3  # 获取起点玩家的索引，+3为了让小盲和大盲在最后
+        start_item = (self._player_ids.index(dealer_id) + 1) % len(self._player_ids)  # 保证循环列表中在最后一位时也能取得小盲位索引
         step_multiplier = -1 if reverse else 1  # 根据方向确定步进值
         for i in range(len(self._player_ids)):
             next_item = (start_item + (i * step_multiplier)) % len(self._player_ids)
