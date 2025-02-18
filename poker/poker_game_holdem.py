@@ -162,11 +162,11 @@ class HoldemPokerGame(PokerGame):
         if self._game_players.count_active() < 2:
             raise GameError("Not enough players")
 
-        active_players = list(self._game_players.round(dealer_id))  # [e,a,b,c,d]
+        active_players = list(self._game_players.round(dealer_id))
 
         bets = {}
 
-        sb_player = active_players[-2]
+        sb_player = active_players[0]
         sb_player.take_money(self._small_blind)
         bets[sb_player.id] = self._small_blind
 
@@ -177,7 +177,7 @@ class HoldemPokerGame(PokerGame):
             bets=bets
         )
 
-        bb_player = active_players[-1]
+        bb_player = active_players[1]
         bb_player.take_money(self._big_blind)
         bets[bb_player.id] = self._big_blind
 
