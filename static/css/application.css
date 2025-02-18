@@ -199,6 +199,11 @@ body {
     padding-top: 15px;
 }
 
+#players .player.dealer .player-name {
+    color: gold; /* 金色 */
+    font-weight: bold; /* 加粗 */
+}
+
 #players .player.current .player-info {
     background-color: #2377c6;
 }
@@ -442,3 +447,4 @@ body {
 #game-wrapper.texas-holdem #players .player .cards .card {
     margin-left: 0px;
 }
+
